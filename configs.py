@@ -4,7 +4,7 @@ import os
 
 class CommonConfigs(object):
     def __init__(self, d_type):
-        self.ROOT_PATH = os.getcwd() + "/"
+        self.ROOT_PATH = 'drive/My Drive/LAB/data' + "/"
         self.TRAINING_DATA_PATH = self.ROOT_PATH + d_type + "/train_set/"
         self.VALIDATE_DATA_PATH = self.ROOT_PATH + d_type + "/validate_set/"
         self.TESTING_DATA_PATH = self.ROOT_PATH + d_type + "/test_set/"
@@ -21,7 +21,7 @@ class DeepmindTraining(object):
     IS_UNICODE = False
     REMOVES_PUNCTION = False
     HAS_Y = True
-    BATCH_SIZE = 32
+    BATCH_SIZE = 30
 
 class DeepmindTesting(object):
     IS_UNICODE = False
@@ -62,7 +62,7 @@ class DeepmindConfigs():
     FF_SIZE = 1024
     NUM_H = 8 # multi-head attention
     DROPOUT = 0.2
-    NUM_L = 4 # num of layers
+    NUM_L = 6 # num of layers
     MIN_LEN_X = 10
     MIN_LEN_Y = 10
     MAX_LEN_X = 400

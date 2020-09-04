@@ -118,7 +118,7 @@ def init_modules():
     consts["lr"] = cfg.LR
     consts["beam_size"] = cfg.BEAM_SIZE
 
-    consts["max_epoch"] = 50 if options["is_debugging"] else 64 
+    consts["max_epoch"] = 40 if options["is_debugging"] else 64 
     consts["print_time"] = 2
     consts["save_epoch"] = 1
 
