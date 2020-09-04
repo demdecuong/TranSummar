@@ -207,6 +207,7 @@ class Model(nn.Module):
             hs, src_padding_mask = self.encode_longformer(x, attention_mask = attention_mask)
             # If using Transformer Layer
             hs = hs.permute(1,0,2) # seq len x batch x dmodel
+            src_padding_mask = src_padding_mask.permute(1,0) # batch x len
             print("Encoder :", hs.shape)
             if self.copy:
                 # y_inp = y_inp.permute(1,0) # Longformerlayer
