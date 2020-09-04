@@ -101,6 +101,7 @@ def init_modules():
     consts["label_smoothing"] = cfg.SMOOTHING
     consts["alpha"] = cfg.ALPHA
     consts["beta"] = cfg.BETA
+    consts['shared_weights'] = cfg.SHARED_WEIGHTS
 
     consts["batch_size"] = 5 if options["is_debugging"] else TRAINING_DATASET_CLS.BATCH_SIZE
     if options["is_debugging"]:

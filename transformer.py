@@ -20,6 +20,7 @@ class TransformerLayer(nn.Module):
             self.external_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
+    
     def reset_parameters(self):
         nn.init.normal_(self.fc1.weight, std=0.02)
         nn.init.normal_(self.fc2.weight, std=0.02)

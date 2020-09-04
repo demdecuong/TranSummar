@@ -83,3 +83,6 @@ class DeepmindConfigs():
     W_PAD = "<pad>"
     W_LS = "<s>"
     W_RS = "</s>"
+
+    SHARED_WEIGHTS = True
+
