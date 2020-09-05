@@ -21,6 +21,7 @@ from model import *
 from utils_pg import *
 from configs import *
 from optim import Optim
+from longformer.sliding_chunks import pad_to_window_size, pad_window_size
 
 cfg = DeepmindConfigs()
 TRAINING_DATASET_CLS = DeepmindTraining
@@ -101,7 +102,6 @@ def init_modules():
     consts["label_smoothing"] = cfg.SMOOTHING
     consts["alpha"] = cfg.ALPHA
     consts["beta"] = cfg.BETA
-    consts['shared_weights'] = cfg.SHARED_WEIGHTS
 
     consts["batch_size"] = 5 if options["is_debugging"] else TRAINING_DATASET_CLS.BATCH_SIZE
     if options["is_debugging"]:
@@ -372,13 +372,13 @@ def predict(model, modules, consts, options):
                 if options["copy"]:
                     inputx = (torch.LongTensor(batch.x_ext[:, idx_s]).to(options["device"]), \
                             torch.FloatTensor(batch.x_mask[:, idx_s, :]).to(options["device"]), \
-                          word_emb[:, idx_s, :], padding_mask[:, idx_s],\
-                          batch.y[:, idx_s], [batch.len_y[idx_s]], batch.original_summarys[idx_s],\
-                          batch.max_ext_len, batch.x_ext_words[idx_s])
+                        word_emb[:, idx_s, :], \
+                        padding_mask[:, idx_s],\
+                        batch.y[:, idx_s], [batch.len_y[idx_s]], batch.original_summarys[idx_s],\
+                        batch.max_ext_len, batch.x_ext_words[idx_s])
                 else:
                     inputx = (torch.LongTensor(batch.x[:, idx_s]).to(options["device"]), word_emb[:, idx_s, :], padding_mask[:, idx_s],\
                               batch.y[:, idx_s], [batch.len_y[idx_s]], batch.original_summarys[idx_s])
-
                 beam_decode(si, inputx, model, modules, consts, options)
                 si += 1
         else:
@@ -393,7 +393,7 @@ def predict(model, modules, consts, options):
             partial_num = 0
     print (si, total_num)
 
-def run(existing_model_name = None):
+def run(existing_model_name = None,w = 64):
     modules, consts, options = init_modules()
 
     if options["is_predicting"]:
@@ -457,8 +457,21 @@ def run(existing_model_name = None):
                         continue
                     local_batch_size = len(batch_raw)
                     batch = datar.get_data(batch_raw, modules, consts, options)
-                  
-                    
+
+                    # initialize to local attention
+                    attention_mask = torch.ones(batch.x.shape, dtype=torch.long , device= options["device"])
+                    # Set global attention based on the task.
+                    attention_mask[:, :w] = 2
+                    attention_mask[:, attention_mask.size(1) - w : ] = 2
+                    attention_mask = pad_window_size(attention_mask,256,0)
+
+                    batch.x = pad_window_size(torch.LongTensor(batch.x),256,0)
+                    batch.x_ext = pad_window_size(torch.LongTensor(batch.x_ext),256,0)
+                    # batch.y = pad_window_size(torch.LongTensor(batch.y),256,0)
+                    # batch.y_inp = pad_window_size(torch.LongTensor(batch.y_inp),256,0)
+                    # batch.y_ext = pad_window_size(torch.LongTensor(batch.y_ext),256,0)
+
+                    # print(batch.x.shape,attention_mask.shape,batch.y.shape,batch.y_ext.shape)
                     model.zero_grad()
                     
                     y_pred, cost = model(torch.LongTensor(batch.x).to(options["device"]),\
@@ -468,7 +481,8 @@ def run(existing_model_name = None):
                                    torch.FloatTensor(batch.y_mask).to(options["device"]),\
                                    torch.LongTensor(batch.x_ext).to(options["device"]),\
                                    torch.LongTensor(batch.y_ext).to(options["device"]),\
-                                   batch.max_ext_len)
+                                   batch.max_ext_len,
+                                   attention_mask.unsqueeze(1).unsqueeze(1))
 
 
                     cost.backward()
@@ -486,15 +500,16 @@ def run(existing_model_name = None):
                                 "cost_c =", error_c / used_batch, ",", \
                                 "time:", time.time() - partial_start)
                         partial_num_files = 0
-                        if not options["is_debugging"]:
-                            print("save model... ",)
-                            # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
-                            file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + "current_model"
-                            save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
-                            if options["fire"]:
-                                shutil.move(cfg.cc.MODEL_PATH + file_name, "/out/")
+                        # if not options["is_debugging"]:
+                        #     print("save model... ",)
+                        #     # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
+                        #     file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
+                            
+                        #     save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
+                        #     if options["fire"]:
+                        #         shutil.move(cfg.cc.MODEL_PATH + file_name, "/out/")
 
-                            print("finished")
+                            # print("finished")
                         num_partial += 1
                 print ("in this epoch, total average cost =", total_error / used_batch, ",", \
                         "cost_c =", error_c / used_batch, ",",\

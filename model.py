@@ -46,7 +46,7 @@ class Model(nn.Module):
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
-        self.longformer = True
+        self.longformer = False
 
         # Encoder
         self.enc_layers = nn.ModuleList()
@@ -213,7 +213,6 @@ class Model(nn.Module):
                 # y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len,attention_mask = attention_mask)
                 y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
                 cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
-                print("Loss :", cost)
             else:
                 # y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask,attention_mask = attention_mask)
                 y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
@@ -224,11 +223,8 @@ class Model(nn.Module):
             if self.copy:
                 y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
                 cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
-                print("Loss :", cost)
             else:
                 y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
                 cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
-        exit()
         return y_pred, cost
     
-s
