@@ -13,7 +13,6 @@ from utils_pg import *
 from transformer import TransformerLayer, Embedding, LearnedPositionalEmbedding, gelu, LayerNorm, SelfAttentionMask
 from word_prob_layer import *
 from label_smoothing import LabelSmoothing 
-from longformer_layer import LongformerLayer
 
 class Model(nn.Module):
     def __init__(self, modules, consts, options):

@@ -21,7 +21,6 @@ from model import *
 from utils_pg import *
 from configs import *
 from optim import Optim
-from longformer.sliding_chunks import pad_to_window_size, pad_window_size
 
 cfg = DeepmindConfigs()
 TRAINING_DATASET_CLS = DeepmindTraining
