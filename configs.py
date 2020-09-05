@@ -21,7 +21,7 @@ class DeepmindTraining(object):
     IS_UNICODE = False
     REMOVES_PUNCTION = False
     HAS_Y = True
-    BATCH_SIZE = 30
+    BATCH_SIZE = 24
 
 class DeepmindTesting(object):
     IS_UNICODE = False
@@ -48,7 +48,7 @@ class DeepmindConfigs():
     NORM_CLIP = 2
     if not AVG_NLL:
         NORM_CLIP = 5
-    LR = 0.15
+    LR = 0.25
     SMOOTHING = 0.1
 
     BEAM_SEARCH = True

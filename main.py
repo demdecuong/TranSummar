@@ -458,19 +458,6 @@ def run(existing_model_name = None,w = 64):
                     local_batch_size = len(batch_raw)
                     batch = datar.get_data(batch_raw, modules, consts, options)
 
-                    # initialize to local attention
-                    attention_mask = torch.ones(batch.x.shape, dtype=torch.long , device= options["device"])
-                    # Set global attention based on the task.
-                    attention_mask[:, :w] = 2
-                    attention_mask[:, attention_mask.size(1) - w : ] = 2
-                    attention_mask = pad_window_size(attention_mask,256,0)
-
-                    batch.x = pad_window_size(torch.LongTensor(batch.x),256,0)
-                    batch.x_ext = pad_window_size(torch.LongTensor(batch.x_ext),256,0)
-                    # batch.y = pad_window_size(torch.LongTensor(batch.y),256,0)
-                    # batch.y_inp = pad_window_size(torch.LongTensor(batch.y_inp),256,0)
-                    # batch.y_ext = pad_window_size(torch.LongTensor(batch.y_ext),256,0)
-
                     # print(batch.x.shape,attention_mask.shape,batch.y.shape,batch.y_ext.shape)
                     model.zero_grad()
                     
@@ -481,9 +468,7 @@ def run(existing_model_name = None,w = 64):
                                    torch.FloatTensor(batch.y_mask).to(options["device"]),\
                                    torch.LongTensor(batch.x_ext).to(options["device"]),\
                                    torch.LongTensor(batch.y_ext).to(options["device"]),\
-                                   batch.max_ext_len,
-                                   attention_mask.unsqueeze(1).unsqueeze(1))
-
+                                   batch.max_ext_len)
 
                     cost.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), consts["norm_clip"])
