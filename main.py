@@ -102,6 +102,7 @@ def init_modules():
     consts["label_smoothing"] = cfg.SMOOTHING
     consts["alpha"] = cfg.ALPHA
     consts["beta"] = cfg.BETA
+    consts['shared_weights'] = cfg.SHARED_WEIGHTS
 
     consts["batch_size"] = 5 if options["is_debugging"] else TRAINING_DATASET_CLS.BATCH_SIZE
     if options["is_debugging"]:
@@ -401,7 +402,7 @@ def run(existing_model_name = None,w = 64):
         training_model = False
         predict_model = True
     else:
-        need_load_model = False
+        need_load_model = True
         training_model = True
         predict_model = False
 
@@ -523,6 +524,7 @@ def run(existing_model_name = None,w = 64):
                         print ("save model... ",)
                         # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
                         file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model"
+
                         save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
                         if options["fire"]:
                             shutil.move(cfg.cc.MODEL_PATH + file_name, "/out/")

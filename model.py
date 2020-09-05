@@ -46,23 +46,22 @@ class Model(nn.Module):
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
-        self.longformer = False
-
-        # Encoder
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
-        if self.longformer:
-            for i in range(self.num_layers):
-                self.enc_layers.append(LongformerLayer(self.dim_x, self.d_ff, self.num_heads, i, self.dropout))
-            for i in range(self.num_layers):
-                self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
-
-        else:
-            for i in range(self.num_layers):
-                self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout))
-            for i in range(self.num_layers):
-                self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
+        for i in range(self.num_layers):
+            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout))
+        for i in range(self.num_layers):
+            self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
         
+        self.shared_weights = consts['shared_weights']
+        # Shared weights
+        if self.shared_weights:
+            for i in range(self.num_layers):
+                self.enc_layers[i].fc1.weight = self.dec_layers[i].fc1.weight
+                self.enc_layers[i].fc2.weight = self.dec_layers[i].fc2.weight
+                self.enc_layers[i].self_attn.in_proj_weight = self.dec_layers[i].self_attn.in_proj_weight
+                self.enc_layers[i].self_attn.in_proj_bias = self.dec_layers[i].self_attn.in_proj_bias
+                self.enc_layers[i].self_attn.out_proj.weight = self.dec_layers[i].self_attn.out_proj.weight
         
         self.attn_mask = SelfAttentionMask(device=self.device)
 
@@ -120,27 +119,6 @@ class Model(nn.Module):
 
         return x, padding_mask
 
-    def encode_longformer(self, inp, attention_mask = None):
-        seq_len, bsz = inp.size()
-        x = self.tok_embed(inp) + self.pos_embed(inp)
-        x = self.emb_layer_norm(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        padding_mask = torch.eq(inp, self.pad_token_idx)
-        # if not padding_mask.any():
-        #     padding_mask = None
-
-        xs = []
-        if not padding_mask.any():
-            for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, attention_mask=attention_mask)
-                xs.append(x)
-        else:
-            for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, attention_mask=attention_mask)
-                xs.append(x)
-
-        return x, padding_mask
-
     def decode(self, inp, mask_x, mask_y, src, src_padding_mask, xids=None, max_ext_len=None):
         seq_len, bsz = inp.size()
         x = self.tok_embed(inp) + self.pos_embed(inp)
@@ -170,61 +148,14 @@ class Model(nn.Module):
        
         return y_dec, attn_dist
 
-    def decode_longformer(self, inp, mask_x, mask_y, src, src_padding_mask, xids=None, max_ext_len=None, attention_mask = None):
-        seq_len, bsz = inp.size()
-        x = self.tok_embed(inp) + self.pos_embed(inp)
-        x = self.emb_layer_norm(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        h = x
-        if not self.is_predicting:
-            mask_y = mask_y.view((seq_len, bsz))
-            padding_mask = torch.eq(mask_y, self.pad_token_idx)
-            if not padding_mask.any():
-                padding_mask = None
-        else:
-            padding_mask = None
-        
-        self_attn_mask = self.attn_mask(seq_len)
-
-        for layer_id, layer in enumerate(self.dec_layers):
-            x, _, _ = layer(x, self_padding_mask=padding_mask,\
-                    self_attn_mask = self_attn_mask,\
-                    external_memories = src,\
-                    external_padding_mask = src_padding_mask,\
-                    attention_mask = attention_mask)
-        if self.copy:
-            y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len)
-        else:
-            y_dec, attn_dist = self.word_prob(x)
-       
-        return y_dec, attn_dist
-
     def forward(self, x, y_inp, y_tgt, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
-        if self.longformer:
-            # batch x seq len x dmodel
-            x = x.permute(1,0)
-            attention_mask  = attention_mask.permute(3,1,2,0)
-            hs, src_padding_mask = self.encode_longformer(x, attention_mask = attention_mask)
-            # If using Transformer Layer
-            hs = hs.permute(1,0,2) # seq len x batch x dmodel
-            src_padding_mask = src_padding_mask.permute(1,0) # batch x len
-            if self.copy:
-                # y_inp = y_inp.permute(1,0) # Longformerlayer
-                # y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len,attention_mask = attention_mask)
-                y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
-                cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
-            else:
-                # y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask,attention_mask = attention_mask)
-                y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
-                cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
+        # seq len x batch x dmodel
+        hs, src_padding_mask = self.encode(x)
+        if self.copy:
+            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
+            cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
         else:
-            # seq len x batch x dmodel
-            hs, src_padding_mask = self.encode(x)
-            if self.copy:
-                y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
-                cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
-            else:
-                y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
-                cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
+            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
+            cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
         return y_pred, cost
     
