@@ -16,7 +16,7 @@ class TransformerLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True)
             self.external_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
@@ -60,7 +60,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -74,6 +74,12 @@ class MultiheadAttention(nn.Module):
 
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
+        
+        self.random_key = random_key
+        if random_key:
+            self.random_k = nn.Linear((embed_dim,embed_dim) , bias)
+            torch.nn.init.xavier_uniform_(self.random_k)
+        
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -115,6 +121,11 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
+        if self.random_key:
+            k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+            attn_weights_random = torch.bmm(q,k_random)
+            attn_weights = (attn_weights + attn_weights_random ) / 2
+        
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
         if attn_mask is not None:

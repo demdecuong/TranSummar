@@ -53,6 +53,7 @@ class Model(nn.Module):
             self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
         
         self.shared_weights = consts['shared_weights']
+        self.random_key = consts['random_key']
         # Shared weights
         if self.shared_weights:
             for i in range(self.num_layers):
@@ -61,7 +62,12 @@ class Model(nn.Module):
                 self.enc_layers[i].self_attn.in_proj_weight = self.dec_layers[i].self_attn.in_proj_weight
                 self.enc_layers[i].self_attn.in_proj_bias = self.dec_layers[i].self_attn.in_proj_bias
                 self.enc_layers[i].self_attn.out_proj.weight = self.dec_layers[i].self_attn.out_proj.weight
-        
+
+        if self.random_key:
+            for i in range(self.num_layers):
+                self.dec_layers[i].external_attn.in_proj_weight = self.enc_layers[i].self_attn.in_proj_weight
+                self.dec_layers[i].external_attn.in_proj_bias   = self.enc_layers[i].self_attn.in_proj_bias
+
         self.attn_mask = SelfAttentionMask(device=self.device)
 
         self.emb_layer_norm = LayerNorm(self.dim_x)

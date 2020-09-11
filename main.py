@@ -102,6 +102,7 @@ def init_modules():
     consts["alpha"] = cfg.ALPHA
     consts["beta"] = cfg.BETA
     consts['shared_weights'] = cfg.SHARED_WEIGHTS
+    consts['random_key'] = cfg.RANDOM_KEY
 
     consts["batch_size"] = 5 if options["is_debugging"] else TRAINING_DATASET_CLS.BATCH_SIZE
     if options["is_debugging"]:
