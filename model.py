@@ -73,6 +73,8 @@ class Model(nn.Module):
         self.emb_layer_norm = LayerNorm(self.dim_x)
 
         self.word_prob = WordProbLayer(self.hidden_size, self.dict_size, self.device, self.copy, self.coverage, self.dropout)
+        self.word_prob2 = WordProbLayer(self.hidden_size, self.dict_size, self.device, self.copy, self.coverage, self.dropout)
+        self.word_prob3 = WordProbLayer(self.hidden_size, self.dict_size, self.device, self.copy, self.coverage, self.dropout)
        
         self.smoothing = LabelSmoothing(self.device, self.dict_size, self.pad_token_idx, self.smoothing_factor)
 
@@ -148,19 +150,25 @@ class Model(nn.Module):
                     need_weights = False)
         if self.copy:
             y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len)
+            y_dec, _ = self.word_prob2(x, h, src, src_padding_mask, xids, max_ext_len)
+            y_dec, _ = self.word_prob3(x, h, src, src_padding_mask, xids, max_ext_len)
         else:
-            y_dec, attn_dist = self.word_prob(x)
+            y_dec1, attn_dist = self.word_prob(x)
+            y_dec2, _ = self.word_prob2(x)
+            y_dec3, _ = self.word_prob3(x)
        
-        return y_dec, attn_dist
+        return y_dec1, y_dec2, y_dec3, attn_dist
 
-    def forward(self, x, y_inp, y_tgt, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
+    def forward(self, x, y_inp, y_tgt_1, y_tgt_2, y_tgt_3, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
         # seq len x batch x dmodel
         hs, src_padding_mask = self.encode(x)
         if self.copy:
             y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
             cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
         else:
-            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
-            cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
+            y_pred1, y_pred2, y_pred3, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
+            cost1 = self.nll_loss(y_pred1, y_tgt_1, mask_y, self.avg_nll)
+            cost2 = self.nll_loss(y_pred2, y_tgt_2, mask_y, self.avg_nll)
+            cost3 = self.nll_loss(y_pred3, y_tgt_3, mask_y, self.avg_nll)
         return y_pred, cost
     

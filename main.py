@@ -460,11 +460,15 @@ def run(existing_model_name = None,w = 64):
                     batch = datar.get_data(batch_raw, modules, consts, options)
 
                     # print(batch.x.shape,attention_mask.shape,batch.y.shape,batch.y_ext.shape)
+
+
                     model.zero_grad()
                     
                     y_pred, cost = model(torch.LongTensor(batch.x).to(options["device"]),\
                                    torch.LongTensor(batch.y_inp).to(options["device"]),\
-                                   torch.LongTensor(batch.y).to(options["device"]),\
+                                   torch.LongTensor(batch.y_1).to(options["device"]),\
+                                   torch.LongTensor(batch.y_2).to(options["device"]),\
+                                   torch.LongTensor(batch.y_3).to(options["device"]),\
                                    torch.FloatTensor(batch.x_mask).to(options["device"]),\
                                    torch.FloatTensor(batch.y_mask).to(options["device"]),\
                                    torch.LongTensor(batch.x_ext).to(options["device"]),\

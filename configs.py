@@ -40,7 +40,7 @@ class DeepmindConfigs():
 
     CELL = "transformer"
     CUDA = True
-    COPY = True
+    COPY = False
     COVERAGE = True
     
     BI_RNN = False
@@ -85,5 +85,5 @@ class DeepmindConfigs():
     W_RS = "</s>"
 
     SHARED_WEIGHTS = False
-    RANDOM_KEY = True
+    RANDOM_KEY = False
 

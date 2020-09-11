@@ -95,10 +95,14 @@ class BatchData:
         self.x = self.x[0:max_len_x, :]
         self.x_ext = self.x_ext[0:max_len_x, :]
         self.x_mask = self.x_mask[0:max_len_x, :, :]
-        self.y = self.y[0:max_len_y, :]
+        self.y_1 = self.y[0:max_len_y, :]
         self.y_inp = self.y_inp[0:max_len_y, :]
         self.y_ext = self.y_ext[0:max_len_y, :]
         self.y_mask = self.y_mask[0:max_len_y, :, :]
+        self.y_2 = self.y[1:max_len_y,:]
+        self.y_3 = self.y[2:max_len_y,:]
+        self.y_ext_2 = self.y_ext[1:max_len_y, :]
+        self.y_ext_3 = self.y_ext[2:max_len_y, :]
 
 def get_data(xy_list, modules, consts, options):
     return BatchData(xy_list,  modules, consts, options)
