@@ -77,7 +77,7 @@ class MultiheadAttention(nn.Module):
         
         self.random_key = random_key
         if random_key:
-            self.random_k = nn.Linear((embed_dim,embed_dim) , bias)
+            self.random_k = nn.Linear(embed_dim,embed_dim)
             torch.nn.init.xavier_uniform_(self.random_k)
         
         self.reset_parameters()
