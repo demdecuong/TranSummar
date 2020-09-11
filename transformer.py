@@ -16,7 +16,7 @@ class TransformerLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = False)
             self.external_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
@@ -78,7 +78,7 @@ class MultiheadAttention(nn.Module):
         self.random_key = random_key
         if random_key:
             self.random_k = nn.Linear(embed_dim,embed_dim)
-            torch.nn.init.xavier_uniform_(self.random_k)
+            torch.nn.init.xavier_uniform_(self.random_k.weight)
         
         self.reset_parameters()
 
