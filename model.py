@@ -160,6 +160,9 @@ class Model(nn.Module):
         return y_dec1, y_dec2, y_dec3, attn_dist
 
     def forward(self, x, y_inp, y_tgt_1, y_tgt_2, y_tgt_3, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
+        a = 0.5
+        b = 0.25
+        c = 0.25
         # seq len x batch x dmodel
         hs, src_padding_mask = self.encode(x)
         if self.copy:
@@ -170,5 +173,6 @@ class Model(nn.Module):
             cost1 = self.nll_loss(y_pred1, y_tgt_1, mask_y, self.avg_nll)
             cost2 = self.nll_loss(y_pred2, y_tgt_2, mask_y, self.avg_nll)
             cost3 = self.nll_loss(y_pred3, y_tgt_3, mask_y, self.avg_nll)
+            cost = cost1 * a + cost2 * b + cost3 * c
         return y_pred, cost
     
