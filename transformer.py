@@ -78,7 +78,7 @@ class MultiheadAttention(nn.Module):
         self.random_key = random_key
         if random_key:
             self.random_k = nn.Linear(embed_dim,embed_dim)
-            torch.nn.init.xavier_uniform_(self.random_k)
+            torch.nn.init.xavier_uniform_(self.random_k.weight)
         
         self.reset_parameters()
 
@@ -123,7 +123,7 @@ class MultiheadAttention(nn.Module):
         attn_weights = torch.bmm(q, k.transpose(1, 2))
         if self.random_key:
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
-            attn_weights_random = torch.bmm(q,k_random)
+            attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
             attn_weights = (attn_weights + attn_weights_random ) / 2
         
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
