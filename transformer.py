@@ -6,7 +6,7 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id ):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id = 0):
         super(TransformerLayer, self).__init__()
         self.id = id
         self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id)
@@ -61,7 +61,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id = 0):
         super(MultiheadAttention, self).__init__()
         self.id = id
         self.embed_dim = embed_dim
