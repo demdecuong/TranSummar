@@ -80,7 +80,7 @@ class MultiheadAttention(nn.Module):
             self.random_k = nn.Linear(embed_dim,embed_dim)
             torch.nn.init.xavier_uniform_(self.random_k.weight)
             self.p_random = Parameter(torch.Tensor(1,1), requires_grad=True) # learned random number
-            torch.nn.init.xavier_uniform_(self.p_random.weight)
+            torch.nn.init.xavier_uniform_(self.p_random)
             self.threshold = 0.8 # [0.0, 0.2 , 0.4, 0.6, 0.8, 1.0]
         
         self.reset_parameters()
