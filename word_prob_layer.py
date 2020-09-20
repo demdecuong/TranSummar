@@ -38,7 +38,7 @@ class WordProbLayer(nn.Module):
     def forward(self, h, y_emb=None, memory=None, mask_x=None, xids=None, max_ext_len=None):
 
         if self.copy:
-            atts, dists = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=mask_x, need_weights = True)
+            atts, dists, _ = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=mask_x, need_weights = True)
             pred = T.softmax(self.proj(T.cat([h, y_emb, atts], -1)), dim=-1)
             if max_ext_len > 0:
                 ext_zeros = Variable(torch.zeros(pred.size(0), pred.size(1), max_ext_len)).to(self.device)

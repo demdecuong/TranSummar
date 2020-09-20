@@ -35,16 +35,16 @@ class TransformerLayer(nn.Module):
         # x: seq_len x bsz x embed_dim
         residual = x
         if kv is None:
-            x, self_attn, prev_p_random = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights,prev_p_random =prev_p_random)
+            x, self_attn, _ = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
         else:
-            x, self_attn, prev_p_random = self.self_attn(query=x, key=kv, value=kv, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights, prev_p_random =prev_p_random)
+            x, self_attn, _ = self.self_attn(query=x, key=kv, value=kv, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
 
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.attn_layer_norm(residual + x)
 
         if self.with_external:
             residual = x
-            x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights)
+            x, external_attn, prev_p_random = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights, prev_p_random = prev_p_random)
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.external_layer_norm(residual + x)
         else:
