@@ -140,6 +140,7 @@ class Model(nn.Module):
         
         self_attn_mask = self.attn_mask(seq_len)
 
+        prev_p_random = 0
         for layer_id, layer in enumerate(self.dec_layers):
             x, _, _, prev_p_random = layer(x, self_padding_mask=padding_mask,\
                     self_attn_mask = self_attn_mask,\
