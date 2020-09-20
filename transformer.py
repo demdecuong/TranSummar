@@ -131,7 +131,7 @@ class MultiheadAttention(nn.Module):
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
             attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
             a = (self.id + 1) * self.p_random
-            attn_weights =  a * attn_weights + (1- a) * attn_weights_random
+            attn_weights =  (1- a) * attn_weights + a * attn_weights_random
 
             # u_l = torch.sigmoid(self.p_random) # Convert to [0,1] distribution
             # p_a = int((u_l <  self.threshold/2).item()) 
