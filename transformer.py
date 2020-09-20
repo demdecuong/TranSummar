@@ -6,9 +6,10 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id ):
         super(TransformerLayer, self).__init__()
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+        self.id = id
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
@@ -16,7 +17,7 @@ class TransformerLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True, id = self.id)
             self.external_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
@@ -60,8 +61,9 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id):
         super(MultiheadAttention, self).__init__()
+        self.id = id
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.dropout = dropout
@@ -80,7 +82,7 @@ class MultiheadAttention(nn.Module):
             self.random_k = nn.Linear(embed_dim,embed_dim)
             torch.nn.init.xavier_uniform_(self.random_k.weight)
             self.p_random = Parameter(torch.Tensor(1,1), requires_grad=True) # learned random number
-            torch.nn.init.xavier_uniform_(self.p_random.weight)
+            torch.nn.init.xavier_uniform_(self.p_random)
             self.threshold = 0.8 # [0.0, 0.2 , 0.4, 0.6, 0.8, 1.0]
         
         self.reset_parameters()

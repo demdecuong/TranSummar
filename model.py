@@ -48,9 +48,9 @@ class Model(nn.Module):
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
         for i in range(self.num_layers):
-            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout))
+            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, id = i))
         for i in range(self.num_layers):
-            self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
+            self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True, id = i))
         
         self.shared_weights = consts['shared_weights']
         self.random_key = consts['random_key']
