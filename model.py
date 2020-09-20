@@ -115,11 +115,11 @@ class Model(nn.Module):
         xs = []
         if not padding_mask.any():
             for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=None)
+                x, _ ,_, _ = layer(x, self_padding_mask=None)
                 xs.append(x)
         else:
             for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=padding_mask)
+                x, _ ,_, _ = layer(x, self_padding_mask=padding_mask)
                 xs.append(x)
 
         return x, padding_mask
