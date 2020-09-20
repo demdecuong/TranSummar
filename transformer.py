@@ -81,9 +81,9 @@ class MultiheadAttention(nn.Module):
         if random_key:
             self.random_k = nn.Linear(embed_dim,embed_dim)
             torch.nn.init.xavier_uniform_(self.random_k.weight)
-            # self.p_random = Parameter(torch.Tensor(1,1), requires_grad=True) # learned random number
-            # torch.nn.init.xavier_uniform_(self.p_random)
-            self.p_random = 0.2
+            self.p_random = Parameter(torch.Tensor(1,1), requires_grad=True) # learned random number
+            torch.nn.init.xavier_uniform_(self.p_random)
+            # self.p_random = 0.2
             self.threshold = 0.8 # [0.0, 0.2 , 0.4, 0.6, 0.8, 1.0]
         
         self.reset_parameters()
@@ -130,20 +130,18 @@ class MultiheadAttention(nn.Module):
         if self.random_key:
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
             attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
-            a = (self.id + 1) * self.p_random
-            attn_weights =  (1- a) * attn_weights + a * attn_weights_random
 
-            # u_l = torch.sigmoid(self.p_random) # Convert to [0,1] distribution
-            # p_a = int((u_l <  self.threshold/2).item()) 
-            # p_b = int((u_l >  1 - self.threshold/2).item()) 
+            u_l = torch.sigmoid(self.p_random * (self.id + 1 ) ) # Convert to [0,1] distribution + add order of layer feature
+            p_a = int((u_l <  self.threshold/2).item()) 
+            p_b = int((u_l >  1 - self.threshold/2).item()) 
 
-            # p_tmp1 = int((u_l <=  self.threshold/2).item()) 
-            # p_tmp2 = int((u_l < 1 - self.threshold/2).item()) 
-            # p_c = p_tmp1 and p_tmp2 
+            p_tmp1 = int((u_l <=  self.threshold/2).item()) 
+            p_tmp2 = int((u_l < 1 - self.threshold/2).item()) 
+            p_c = p_tmp1 and p_tmp2 
             
-            # attn_weights = p_a * attn_weights + \
-            #                 p_b * attn_weights_random + \
-            #                 1/2 * p_c * (attn_weights  + attn_weights_random)
+            attn_weights = p_a * attn_weights + \
+                            p_b * attn_weights_random + \
+                            1/2 * p_c * (attn_weights  + attn_weights_random)
         
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
