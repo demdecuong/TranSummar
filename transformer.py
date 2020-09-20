@@ -31,13 +31,13 @@ class TransformerLayer(nn.Module):
     def forward(self, x, kv = None,
                 self_padding_mask = None, self_attn_mask = None,
                 external_memories = None, external_padding_mask=None,
-                need_weights = False):
+                need_weights = False,prev_p_random = 0):
         # x: seq_len x bsz x embed_dim
         residual = x
         if kv is None:
-            x, self_attn = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
+            x, self_attn, prev_p_random = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights,prev_p_random =prev_p_random)
         else:
-            x, self_attn = self.self_attn(query=x, key=kv, value=kv, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
+            x, self_attn, prev_p_random = self.self_attn(query=x, key=kv, value=kv, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights, prev_p_random =prev_p_random)
 
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.attn_layer_norm(residual + x)
@@ -57,7 +57,7 @@ class TransformerLayer(nn.Module):
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.ff_layer_norm(residual + x)
 
-        return x, self_attn, external_attn
+        return x, self_attn, external_attn,prev_p_random
     
 class MultiheadAttention(nn.Module):
 
@@ -94,7 +94,7 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.in_proj_bias, 0.)
         nn.init.constant_(self.out_proj.bias, 0.)
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
+    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False, prev_p_random = 0):
         """ Input shape: Time x Batch x Channel
             key_padding_mask: Time x batch
             attn_mask:  tgt_len x src_len
@@ -131,7 +131,8 @@ class MultiheadAttention(nn.Module):
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
             attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
 
-            u_l = torch.sigmoid(self.p_random * (self.num_heads - self.id + 1 ) ) # Convert to [0,1] distribution + add order of layer feature
+            # u_l = torch.sigmoid(self.p_random * (self.num_heads - self.id + 1 ) ) # Convert to [0,1] distribution + add order of layer feature
+            u_l = torch.sigmoid(self.p_random + prev_p_random ) # Convert to [0,1] distribution + add order of layer feature
             p_a = int((u_l <  self.threshold/2).item()) 
             p_b = int((u_l >  1 - self.threshold/2).item()) 
 
@@ -185,7 +186,7 @@ class MultiheadAttention(nn.Module):
         else:
             attn_weights = None
 
-        return attn, attn_weights
+        return attn, attn_weights, prev_p_random
 
     def in_proj_qkv(self, query):
         return self._in_proj(query).chunk(3, dim=-1)

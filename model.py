@@ -141,11 +141,11 @@ class Model(nn.Module):
         self_attn_mask = self.attn_mask(seq_len)
 
         for layer_id, layer in enumerate(self.dec_layers):
-            x, _, _ = layer(x, self_padding_mask=padding_mask,\
+            x, _, _, prev_p_random = layer(x, self_padding_mask=padding_mask,\
                     self_attn_mask = self_attn_mask,\
                     external_memories = src,\
                     external_padding_mask = src_padding_mask,\
-                    need_weights = False)
+                    need_weights = False,prev_p_random = prev_p_random)
         if self.copy:
             y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len)
         else:
