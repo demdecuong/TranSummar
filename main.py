@@ -103,6 +103,7 @@ def init_modules():
     consts["beta"] = cfg.BETA
     consts['shared_weights'] = cfg.SHARED_WEIGHTS
     consts['random_key'] = cfg.RANDOM_KEY
+    consts['use_aoa'] = cfg.USE_AOA
 
     consts["batch_size"] = 5 if options["is_debugging"] else TRAINING_DATASET_CLS.BATCH_SIZE
     if options["is_debugging"]:
@@ -508,7 +509,7 @@ def run(existing_model_name = None,w = 64):
                     if not options["is_debugging"]:
                         print ("save model... ",)
                         # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
-                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model_random_ver4"
+                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model_aoa"
 
                         save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
                         if options["fire"]:

@@ -160,56 +160,55 @@ def prepare_deepmind(d_path):
         makedirs(TMP_PATH)
     
         
-    # print ("trainset...")
-    # train_xy_list = load_lines(d_path, "train.txt", configs)
+    print ("trainset...")
+    train_xy_list = load_lines(d_path, "train.txt", configs)
 
-    # # print ("dump train...")
-    # # pickle.dump(train_xy_list, open(TRAINING_PATH + "train.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)
-    
+    print ("dump train...")
+    pickle.dump(train_xy_list, open(TRAINING_PATH + "train.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)    
 
-    # print ("fitering and building dict...")
-    # use_abisee = True
-    # all_dic1 = {}
-    # all_dic2 = {}
-    # dic_list = []
-    # all_dic1, dic_list = load_dict(d_path, "vocab", all_dic1, dic_list)
-    # all_dic2 = to_dict(train_xy_list, all_dic2)
-    # for w, tf in all_dic2.items():
-    #     if w not in all_dic1:
-    #         all_dic1[w] = tf
+    print ("fitering and building dict...")
+    use_abisee = True
+    all_dic1 = {}
+    all_dic2 = {}
+    dic_list = []
+    all_dic1, dic_list = load_dict(d_path, "vocab", all_dic1, dic_list)
+    all_dic2 = to_dict(train_xy_list, all_dic2)
+    for w, tf in all_dic2.items():
+        if w not in all_dic1:
+            all_dic1[w] = tf
 
-    # candiate_list = dic_list[0:configs.PG_DICT_SIZE] # 50000
-    # candiate_set = set(candiate_list)
+    candiate_list = dic_list[0:configs.PG_DICT_SIZE] # 50000
+    candiate_set = set(candiate_list)
 
-    # dic = {}
-    # w2i = {}
-    # i2w = {}
-    # w2w = {}
+    dic = {}
+    w2i = {}
+    i2w = {}
+    w2w = {}
 
-    # for w in [configs.W_PAD, configs.W_UNK, configs.W_BOS, configs.W_EOS]:
-    # #for w in [configs.W_PAD, configs.W_UNK, configs.W_BOS, configs.W_EOS, configs.W_LS, configs.W_RS]:
-    #     w2i[w] = len(dic)
-    #     i2w[w2i[w]] = w
-    #     dic[w] = 10000
-    #     w2w[w] = w
+    for w in [configs.W_PAD, configs.W_UNK, configs.W_BOS, configs.W_EOS]:
+    #for w in [configs.W_PAD, configs.W_UNK, configs.W_BOS, configs.W_EOS, configs.W_LS, configs.W_RS]:
+        w2i[w] = len(dic)
+        i2w[w2i[w]] = w
+        dic[w] = 10000
+        w2w[w] = w
 
-    # for w, tf in all_dic1.items():
-    #     if w in candiate_set:
-    #         w2i[w] = len(dic)
-    #         i2w[w2i[w]] = w
-    #         dic[w] = tf
-    #         w2w[w] = w
-    #     else:
-    #         w2w[w] = configs.W_UNK 
-    # hfw = []
-    # sorted_x = sorted(dic.items(), key=operator.itemgetter(1), reverse=True)
-    # for w in sorted_x:
-    #     hfw.append(w[0])
+    for w, tf in all_dic1.items():
+        if w in candiate_set:
+            w2i[w] = len(dic)
+            i2w[w2i[w]] = w
+            dic[w] = tf
+            w2w[w] = w
+        else:
+            w2w[w] = configs.W_UNK 
+    hfw = []
+    sorted_x = sorted(dic.items(), key=operator.itemgetter(1), reverse=True)
+    for w in sorted_x:
+        hfw.append(w[0])
 
-    # assert len(hfw) == len(dic)
-    # assert len(w2i) == len(dic)
-    # print ("dump dict...")
-    # pickle.dump([all_dic1, dic, hfw, w2i, i2w, w2w], open(TRAINING_PATH + "dic.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)
+    assert len(hfw) == len(dic)
+    assert len(w2i) == len(dic)
+    print ("dump dict...")
+    pickle.dump([all_dic1, dic, hfw, w2i, i2w, w2w], open(TRAINING_PATH + "dic.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)
     
     print ("testset...")
     test_xy_list = load_lines(d_path, "test.txt", configs)
@@ -241,7 +240,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_type = "cnndm"
-    raw_path = "../cnndm-pj/"
+    raw_path = "../cnndm/"
 
     print (data_type, raw_path)
     run(data_type, raw_path)

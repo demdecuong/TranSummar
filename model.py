@@ -42,18 +42,21 @@ class Model(nn.Module):
         self.dropout = consts["dropout"]
         self.smoothing_factor = consts["label_smoothing"] 
 
+        self.shared_weights = consts['shared_weights']
+        self.random_key = consts['random_key']
+        self.use_aoa = consts['use_aoa']
+
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
         for i in range(self.num_layers):
-            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, id = i))
+            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, id = i, use_aoa= self.use_aoa))
         for i in range(self.num_layers):
-            self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True, id = i))
+            self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True, id = i,use_aoa= self.use_aoa))
         
-        self.shared_weights = consts['shared_weights']
-        self.random_key = consts['random_key']
+
         # Shared weights
         if self.shared_weights:
             for i in range(self.num_layers):

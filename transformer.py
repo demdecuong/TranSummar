@@ -6,10 +6,10 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id = 0):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id = 0, use_aoa = False):
         super(TransformerLayer, self).__init__()
         self.id = id
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id)
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id, use_aoa= use_aoa)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
@@ -17,7 +17,7 @@ class TransformerLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True, id = self.id)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True, id = self.id, use_aoa= use_aoa)
             self.external_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
@@ -61,7 +61,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id = 0):
+    def __init__(self, embed_dim, num_heads, dropout=0.1 , weights_dropout=True,random_key = False, id = 0, scale = 1 ,use_aoa = False, dropout_aoa = 0.3):
         super(MultiheadAttention, self).__init__()
         self.id = id
         self.embed_dim = embed_dim
@@ -78,6 +78,8 @@ class MultiheadAttention(nn.Module):
         self.weights_dropout = weights_dropout
         
         self.random_key = random_key
+        self.use_aoa = use_aoa
+
         if random_key:
             self.random_k = nn.Linear(embed_dim,embed_dim)
             torch.nn.init.xavier_uniform_(self.random_k.weight)
@@ -86,6 +88,13 @@ class MultiheadAttention(nn.Module):
             # self.p_random = 0.2
             self.threshold = 0.8 # [0.0, 0.2 , 0.4, 0.6, 0.8, 1.0]
         
+        if use_aoa:
+            self.aoa_layer =  nn.Sequential(nn.Linear((1 + scale) * embed_dim, 2 * embed_dim), nn.GLU())
+            # dropout to the input of AoA layer
+            if dropout_aoa > 0:
+                self.dropout_aoa = nn.Dropout(p=dropout_aoa)
+            else:
+                self.dropout_aoa = lambda x:x
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -117,7 +126,8 @@ class MultiheadAttention(nn.Module):
             k = self.in_proj_k(key)
             v = self.in_proj_v(value)
         q *= self.scaling
-        
+        query = q
+
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
@@ -185,6 +195,10 @@ class MultiheadAttention(nn.Module):
             attn_weights = attn_weights.transpose(0, 1)
         else:
             attn_weights = None
+
+        if self.use_aoa:
+            # Apply AoA
+            attn = self.aoa_layer(self.dropout_aoa(torch.cat([attn, query], -1)))
 
         return attn, attn_weights, prev_p_random
 

@@ -4,7 +4,7 @@ import os
 
 class CommonConfigs(object):
     def __init__(self, d_type):
-        self.ROOT_PATH = 'drive/My Drive/LAB/data' + "/"
+        self.ROOT_PATH = '../drive/My Drive/LAB/data' + "/"
         self.TRAINING_DATA_PATH = self.ROOT_PATH + d_type + "/train_set/"
         self.VALIDATE_DATA_PATH = self.ROOT_PATH + d_type + "/validate_set/"
         self.TESTING_DATA_PATH = self.ROOT_PATH + d_type + "/test_set/"
@@ -85,5 +85,5 @@ class DeepmindConfigs():
     W_RS = "</s>"
 
     SHARED_WEIGHTS = False
-    RANDOM_KEY = True
-
+    RANDOM_KEY = False
+    USE_AOA = True
