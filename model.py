@@ -63,10 +63,10 @@ class Model(nn.Module):
                 self.enc_layers[i].self_attn.in_proj_bias = self.dec_layers[i].self_attn.in_proj_bias
                 self.enc_layers[i].self_attn.out_proj.weight = self.dec_layers[i].self_attn.out_proj.weight
 
-        if self.random_key:
-            for i in range(self.num_layers):
-                self.dec_layers[i].external_attn.in_proj_weight = self.enc_layers[i].self_attn.in_proj_weight
-                self.dec_layers[i].external_attn.in_proj_bias   = self.enc_layers[i].self_attn.in_proj_bias
+        # if self.random_key:
+        #     for i in range(self.num_layers):
+        #         self.dec_layers[i].external_attn.in_proj_weight = self.enc_layers[i].self_attn.in_proj_weight
+        #         self.dec_layers[i].external_attn.in_proj_bias   = self.enc_layers[i].self_attn.in_proj_bias
 
         self.attn_mask = SelfAttentionMask(device=self.device)
 
