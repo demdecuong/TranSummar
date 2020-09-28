@@ -131,18 +131,18 @@ class MultiheadAttention(nn.Module):
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
             attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
 
-            # u_l = torch.sigmoid(self.p_random * (self.num_heads - self.id + 1 ) ) # Convert to [0,1] distribution + add order of layer feature
             u_l = torch.sigmoid(self.p_random + prev_p_random ) # Convert to [0,1] distribution + add order of layer feature
-            p_a = int((u_l <  self.threshold/2).item()) 
-            p_b = int((u_l >  1 - self.threshold/2).item()) 
+            attn_weights = u_l * attn_weights + (1-u_l) * attn_weights_random
+            # p_a = int((u_l <  self.threshold/2).item()) 
+            # p_b = int((u_l >  1 - self.threshold/2).item()) 
 
-            p_tmp1 = int((u_l <=  self.threshold/2).item()) 
-            p_tmp2 = int((u_l < 1 - self.threshold/2).item()) 
-            p_c = p_tmp1 and p_tmp2 
+            # p_tmp1 = int((u_l <=  self.threshold/2).item()) 
+            # p_tmp2 = int((u_l < 1 - self.threshold/2).item()) 
+            # p_c = p_tmp1 and p_tmp2 
             
-            attn_weights = p_a * attn_weights + \
-                            p_b * attn_weights_random + \
-                            1/2 * p_c * (attn_weights  + attn_weights_random)
+            # attn_weights = p_a * attn_weights + \
+            #                 p_b * attn_weights_random + \
+            #                 1/2 * p_c * (attn_weights  + attn_weights_random)
         
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
