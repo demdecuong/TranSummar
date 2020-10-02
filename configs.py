@@ -19,7 +19,7 @@ class CommonConfigs(object):
 
 class DeepmindTraining(object):
     IS_UNICODE = False
-    REMOVES_PUNCTION = False
+    REMOVES_PUNCTION = True
     HAS_Y = True
     BATCH_SIZE = 24
 
@@ -31,7 +31,7 @@ class DeepmindTesting(object):
     MAX_LEN_PREDICT = 120
     MAX_BYTE_PREDICT = None
     PRINT_SIZE = 500
-    REMOVES_PUNCTION = False
+    REMOVES_PUNCTION = True
 
 class DeepmindConfigs():
     
@@ -40,8 +40,8 @@ class DeepmindConfigs():
 
     CELL = "transformer"
     CUDA = True
-    COPY = True
-    COVERAGE = True
+    COPY = False
+    COVERAGE = False
     
     BI_RNN = False
     AVG_NLL = True
@@ -56,13 +56,13 @@ class DeepmindConfigs():
     ALPHA = 0.9 # length penalty
     BETA = 5 # coverage during beamsearch
 
-    DIM_X = 512
+    DIM_X = 768
     DIM_Y = DIM_X
-    HIDDEN_SIZE = 512
-    FF_SIZE = 1024
+    HIDDEN_SIZE = 768
+    FF_SIZE = 2048
     NUM_H = 8 # multi-head attention
     DROPOUT = 0.2
-    NUM_L = 6 # num of layers
+    NUM_L = 12 # num of layers
     MIN_LEN_X = 10
     MIN_LEN_Y = 10
     MAX_LEN_X = 400
