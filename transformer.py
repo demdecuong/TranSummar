@@ -18,6 +18,9 @@ class TransformerLayer(nn.Module):
         if self.with_external:
             self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
             self.external_layer_norm = LayerNorm(embed_dim)
+
+            self.transru_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+            self.transru_layer_norm = LayerNorm(embed_dim)
         self.reset_parameters()
     
     
@@ -30,6 +33,7 @@ class TransformerLayer(nn.Module):
     def forward(self, x, kv = None,
                 self_padding_mask = None, self_attn_mask = None,
                 external_memories = None, external_padding_mask=None,
+                transru_memories = None,
                 need_weights = False):
         # x: seq_len x bsz x embed_dim
         residual = x
@@ -46,6 +50,12 @@ class TransformerLayer(nn.Module):
             x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights)
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.external_layer_norm(residual + x)
+
+            x_ru, external_attn = self.transru_attn(query=x_ru, key=transru_memories, value=transru_memories, need_weights = need_weights)
+            x_ru = F.dropout(x, p=self.dropout, training=self.training)
+            x_ru = self.transru_layer_norm(residual + x_ru)
+
+            x = (x + x_ru) / 2
         else:
             external_attn = None
 

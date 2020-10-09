@@ -241,7 +241,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_type = "cnndm"
-    raw_path = "/home/pijili/data/summarization-data/SDS/cnndm-pj/"
+    raw_path = "../cnndm/"
 
     print (data_type, raw_path)
     run(data_type, raw_path)

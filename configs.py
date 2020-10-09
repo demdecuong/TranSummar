@@ -75,7 +75,7 @@ class DeepmindConfigs():
 
     UNI_LOW_FREQ_THRESHOLD = 10
 
-    PG_DICT_SIZE = 50000 # dict for acl17 paper: pointer-generator
+    PG_DICT_SIZE = 25000 # dict for acl17 paper: pointer-generator
     
     W_UNK = "<unk>"
     W_BOS = "<bos>"

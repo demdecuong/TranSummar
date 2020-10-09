@@ -45,6 +45,7 @@ class Model(nn.Module):
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
+        self.trans_ru = nn.GRU(self.dim_x,self.hidden_size,num_layers=2)
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
         for i in range(self.num_layers):
@@ -118,7 +119,12 @@ class Model(nn.Module):
 
         return x, padding_mask
 
-    def decode(self, inp, mask_x, mask_y, src, src_padding_mask, xids=None, max_ext_len=None):
+    def transru_encode(self, inp):
+        x = self.tok_embed(inp)
+        out, state = self.trans_ru(x)
+        return out,state 
+
+    def decode(self, inp, mask_x, out_transru, mask_y, src, src_padding_mask, xids=None, max_ext_len=None):
         seq_len, bsz = inp.size()
         x = self.tok_embed(inp) + self.pos_embed(inp)
         x = self.emb_layer_norm(x)
@@ -134,11 +140,12 @@ class Model(nn.Module):
         
         self_attn_mask = self.attn_mask(seq_len)
 
-        for layer_id, layer in enumerate(self.dec_layers):
+        for layer_id, layer in  (self.dec_layers):
             x, _, _ = layer(x, self_padding_mask=padding_mask,\
                     self_attn_mask = self_attn_mask,\
                     external_memories = src,\
                     external_padding_mask = src_padding_mask,\
+                    transru_memories = out_transru, \
                     need_weights = False)
         if self.copy:
             y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len)
@@ -150,11 +157,12 @@ class Model(nn.Module):
     def forward(self, x, y_inp, y_tgt, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
         # seq len x batch x dmodel
         hs, src_padding_mask = self.encode(x)
+        out_transru, state_transru = self.transru_encode(x)
         if self.copy:
-            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
+            y_pred, _ = self.decode(y_inp, mask_x, out_transru, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
             cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
         else:
-            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
+            y_pred, _ = self.decode(y_inp, mask_x, out_transru, mask_y, hs, src_padding_mask)
             cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
         return y_pred, cost
     
