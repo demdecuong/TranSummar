@@ -51,7 +51,7 @@ class TransformerLayer(nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.external_layer_norm(residual + x)
 
-            x_ru, external_attn = self.transru_attn(query=x_ru, key=transru_memories, value=transru_memories, need_weights = need_weights)
+            x_ru, external_attn = self.transru_attn(query=residual, key=transru_memories, value=transru_memories, need_weights = need_weights)
             x_ru = F.dropout(x, p=self.dropout, training=self.training)
             x_ru = self.transru_layer_norm(residual + x_ru)
 
