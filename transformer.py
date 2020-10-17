@@ -16,8 +16,9 @@ class TransformerLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, with_external = True)
             self.external_layer_norm = LayerNorm(embed_dim)
+
         self.reset_parameters()
     
     
@@ -60,7 +61,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True, with_external = False):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -74,6 +75,16 @@ class MultiheadAttention(nn.Module):
 
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
+
+        self.with_external = with_external
+        if self.with_external:
+            # Salient-choosing  
+            self.W_h = nn.Linear(embed_dim,embed_dim)
+            self.W_s = nn.Linear(embed_dim,embed_dim)
+        else:
+            self.conv_k = nn.Conv1d(8, 8, kernel_size=11, padding = 5, stride=1)
+            self.conv_v = nn.Conv1d(8, 8, kernel_size=11, padding = 5, stride=1)
+
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -112,9 +123,29 @@ class MultiheadAttention(nn.Module):
 
         src_len = k.size(1)
         # k,v: bsz*heads x src_len x dim
-        # q: bsz*heads x tgt_len x dim 
+        # q: bsz*heads x tgt_len x dim
 
+        # local attn 
+        if not self.with_external:
+            # bsz x heads x src_len x dim
+            k = k.view(-1,self.num_heads,src_len,self.head_dim)
+            v = v.view(-1,self.num_heads,src_len,self.head_dim)
+            # bsz*dim x heads x src_len
+            k = k.view(-1,self.num_heads,src_len)
+            v = v.view(-1,self.num_heads,src_len)
+            k = self.conv_k(k)
+            v = self.conv_k(v)
+            # k,v: bsz*heads x src_len x dim
+            k = k.view(-1,self.num_heads,src_len,self.head_dim)
+            v = v.view(-1,self.num_heads,src_len,self.head_dim)
+            k = k.view(-1, bsz * self.num_heads, self.head_dim)
+            v = v.view(-1, bsz * self.num_heads, self.head_dim)
+            
         attn_weights = torch.bmm(q, k.transpose(1, 2))
+
+        if self.with_external:
+            g = torch.sigmoid(torch.bmm(self.W_h(q),self.W_s(k).transpose(1,2)))
+            attn_weights = g * attn_weights 
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
         if attn_mask is not None:

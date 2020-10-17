@@ -189,7 +189,7 @@ def beam_decode(fname, batch, model, modules, consts, options):
             cand_scores = cand_y_scores.flatten()
         idx_top_joint_scores = torch.topk(cand_scores, beam_size - num_dead)[1]
 
-        idx_last_traces = idx_top_joint_scores / dict_size
+        idx_last_traces = idx_top_joint_scores // dict_size
         idx_word_now = idx_top_joint_scores % dict_size
         top_joint_scores = cand_y_scores.flatten()[idx_top_joint_scores]
 
@@ -507,7 +507,7 @@ def run(existing_model_name = None,w = 64):
                     if not options["is_debugging"]:
                         print ("save model... ",)
                         # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
-                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model"
+                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model_conv_salient_trans"
 
                         save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
                         if options["fire"]:
