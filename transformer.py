@@ -129,7 +129,6 @@ class MultiheadAttention(nn.Module):
         # local attn 
         if not self.with_external:
             # bsz x heads x src_len x dim
-            print(k.shape,v.shape, self.num_heads)
             k = k.view(-1,self.num_heads,src_len,self.head_dim)
             v = v.view(-1,self.num_heads,src_len,self.head_dim)
             # bsz*dim x heads x src_len
