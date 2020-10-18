@@ -61,7 +61,7 @@ class DeepmindConfigs():
     HIDDEN_SIZE = 512
     FF_SIZE = 2048
     NUM_H = 8 # multi-head attention
-    DROPOUT = 0.8
+    DROPOUT = 0.2
     NUM_L = 4 # num of layers
     MIN_LEN_X = 10
     MIN_LEN_Y = 10

@@ -6,9 +6,9 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, is_encoder = False):
         super(TransformerLayer, self).__init__()
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, is_encoder)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
@@ -61,7 +61,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True, with_external = False):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True, with_external = False, is_encoder = False):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         # self.num_heads = num_heads
@@ -83,9 +83,10 @@ class MultiheadAttention(nn.Module):
             self.W_h = nn.Linear(self.head_dim,self.head_dim)
             self.W_s = nn.Linear(self.head_dim,self.head_dim)
         else:
-            self.conv_k = nn.Conv1d(8, 8, kernel_size=11, padding = 5, stride=1)
-            self.conv_v = nn.Conv1d(8, 8, kernel_size=11, padding = 5, stride=1)
+            self.conv_k = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
+            self.conv_v = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
 
+        self.is_encoder = is_encoder
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -117,7 +118,18 @@ class MultiheadAttention(nn.Module):
             k = self.in_proj_k(key)
             v = self.in_proj_v(value)
         q *= self.scaling
-            
+
+        #  src_len x batch x dim
+        if self.is_encoder:
+            # local attn 
+            #  batch x dim x src_len
+            k = k.permute(1,2,0)
+            v = v.permute(1,2,0)
+            k = self.conv_k(k)
+            v = self.conv_k(v)
+            k = k.permute(2,0,1)
+            v = v.permute(2,0,1)
+
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
@@ -126,22 +138,7 @@ class MultiheadAttention(nn.Module):
         # k,v: bsz*heads x src_len x dim
         # q: bsz*heads x tgt_len x dim
 
-        # local attn 
-        if not self.with_external:
-            # bsz x heads x src_len x dim
-            k = k.view(-1,self.num_heads,src_len,self.head_dim)
-            v = v.view(-1,self.num_heads,src_len,self.head_dim)
-            # bsz*dim x heads x src_len
-            k = k.contiguous().view(-1,self.num_heads,src_len)
-            v = v.contiguous().view(-1,self.num_heads,src_len)
-            k = self.conv_k(k)
-            v = self.conv_k(v)
-            # k,v: bsz*heads x src_len x dim
-            k = k.view(-1,self.num_heads,src_len,self.head_dim)
-            v = v.view(-1,self.num_heads,src_len,self.head_dim)
-            k = k.view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
-            v = v.view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
-        else:
+        if self.with_external:
             h = self.W_h(q)
             s = self.W_s(k)
             g = torch.sigmoid(torch.bmm(h,s.transpose(1,2)))
