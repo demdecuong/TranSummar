@@ -82,9 +82,9 @@ class MultiheadAttention(nn.Module):
             # Salient-choosing  
             self.W_h = nn.Linear(self.head_dim,self.head_dim)
             self.W_s = nn.Linear(self.head_dim,self.head_dim)
-        else:
-            self.conv_k = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
-            self.conv_v = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
+        # else:
+        #     self.conv_k = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
+        #     self.conv_v = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
 
         self.is_encoder = is_encoder
         self.reset_parameters()
@@ -96,8 +96,8 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.out_proj.bias, 0.)
 
     def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
-        """ Input shape: Time x Batch x Channel
-            key_padding_mask: Time x batch
+        """ Input shape: Len x Batch x Channel
+            key_padding_mask: Len x batch
             attn_mask:  tgt_len x src_len
         """
         qkv_same = query.data_ptr() == key.data_ptr() == value.data_ptr()
@@ -120,15 +120,15 @@ class MultiheadAttention(nn.Module):
         q *= self.scaling
 
         #  src_len x batch x dim
-        if self.is_encoder:
-            # local attn 
-            #  batch x dim x src_len
-            k = k.permute(1,2,0)
-            v = v.permute(1,2,0)
-            k = self.conv_k(k)
-            v = self.conv_k(v)
-            k = k.permute(2,0,1)
-            v = v.permute(2,0,1)
+        # if self.is_encoder:
+        #     # local attn 
+        #     #  batch x dim x src_len
+        #     k = k.permute(1,2,0)
+        #     v = v.permute(1,2,0)
+        #     k = self.conv_k(k)
+        #     v = self.conv_k(v)
+        #     k = k.permute(2,0,1)
+        #     v = v.permute(2,0,1)
 
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)

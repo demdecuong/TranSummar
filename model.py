@@ -14,6 +14,8 @@ from transformer import TransformerLayer, Embedding, LearnedPositionalEmbedding,
 from word_prob_layer import *
 from label_smoothing import LabelSmoothing 
 
+from linear_attention_transformer import LinearAttentionTransformerLM
+
 class Model(nn.Module):
     def __init__(self, modules, consts, options):
         super(Model, self).__init__()  
@@ -45,23 +47,27 @@ class Model(nn.Module):
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
-        self.enc_layers = nn.ModuleList()
+        # self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
-        for i in range(self.num_layers):
-            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
+        # for i in range(self.num_layers):
+        #     self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
         for i in range(self.num_layers):
             self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
-        
+
+        self.enc_layers = LinearAttentionTransformerLM(
+                num_tokens = self.dict_size,
+                dim = self.dim_x,
+                heads = self.num_heads,
+                depth = self.num_layers,
+                max_seq_len = 1024,
+                one_kv_head = True,
+                reversible = True,
+                return_embeddings = True
+            ).cuda()
+
         self.shared_weights = consts['shared_weights']
         # Shared weights
-        if self.shared_weights:
-            for i in range(self.num_layers):
-                self.enc_layers[i].fc1.weight = self.dec_layers[i].fc1.weight
-                self.enc_layers[i].fc2.weight = self.dec_layers[i].fc2.weight
-                self.enc_layers[i].self_attn.in_proj_weight = self.dec_layers[i].self_attn.in_proj_weight
-                self.enc_layers[i].self_attn.in_proj_bias = self.dec_layers[i].self_attn.in_proj_bias
-                self.enc_layers[i].self_attn.out_proj.weight = self.dec_layers[i].self_attn.out_proj.weight
-        
+       
         self.attn_mask = SelfAttentionMask(device=self.device)
 
         self.emb_layer_norm = LayerNorm(self.dim_x)
@@ -98,23 +104,25 @@ class Model(nn.Module):
         return T.mean(cost) 
 
     def encode(self, inp):
-        seq_len, bsz = inp.size()
-        x = self.tok_embed(inp) + self.pos_embed(inp)
-        x = self.emb_layer_norm(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        # seq_len, bsz = inp.size()
+        # x = self.tok_embed(inp) + self.pos_embed(inp)
+        # x = self.emb_layer_norm(x)
+        # x = F.dropout(x, p=self.dropout, training=self.training)
         padding_mask = torch.eq(inp, self.pad_token_idx)
+        x = self.enc_layers(inp)
+        x = x.tranpose(0,1)
         # if not padding_mask.any():
         #     padding_mask = None
 
-        xs = []
-        if not padding_mask.any():
-            for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=None)
-                xs.append(x)
-        else:
-            for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=padding_mask)
-                xs.append(x)
+        # xs = []
+        # if not padding_mask.any():
+        #     for layer_id, layer in enumerate(self.enc_layers):
+        #         x, _ ,_ = layer(x, self_padding_mask=None)
+        #         xs.append(x)
+        # else:
+        #     for layer_id, layer in enumerate(self.enc_layers):
+        #         x, _ ,_ = layer(x, self_padding_mask=padding_mask)
+        #         xs.append(x)
 
         return x, padding_mask
 
