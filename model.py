@@ -47,23 +47,13 @@ class Model(nn.Module):
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
         self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
 
-        # self.enc_layers = nn.ModuleList()
+        self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
-        # for i in range(self.num_layers):
-        #     self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
+        for i in range(self.num_layers):
+            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
         for i in range(self.num_layers):
             self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
 
-        self.enc_layers = LinearAttentionTransformerLM(
-                num_tokens = self.dict_size,
-                dim = self.dim_x,
-                heads = self.num_heads,
-                depth = self.num_layers,
-                max_seq_len = 1024,
-                one_kv_head = True,
-                reversible = True,
-                return_embeddings = True
-            ).cuda()
 
         self.shared_weights = consts['shared_weights']
         # Shared weights
