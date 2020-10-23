@@ -148,7 +148,7 @@ class MultiheadAttention(nn.Module):
         # position function
         pos_emb = pos_emb.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         λp = torch.bmm(pos_emb.transpose(1,2),v)
-        Yp =  torch.bmm(q,λp)
+        # Yp =  torch.bmm(q,λp)
 
 
         # k,v: bsz*heads x src_len x dim
@@ -190,14 +190,14 @@ class MultiheadAttention(nn.Module):
         #         float('-inf')
         #     )
         #     Yc = Yc.view(bsz * self.num_heads, tgt_len, self.head_dim)
+
+        Yc = torch.bmm(Yc,λp)
         Yc = Yc.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-        Yp = Yp.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
 
         Y = self.out_proj(Yc + Yp) 
 
         if self.weights_dropout:
             Yc = F.dropout(Yc, p=self.dropout, training=self.training)
-            Yp = F.dropout(Yp, p=self.dropout, training=self.training)
 
         if not self.weights_dropout:
             Y = F.dropout(Y, p=self.dropout, training=self.training)
