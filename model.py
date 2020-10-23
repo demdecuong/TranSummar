@@ -132,7 +132,7 @@ class Model(nn.Module):
         self_attn_mask = self.attn_mask(seq_len)
 
         for layer_id, layer in enumerate(self.dec_layers):
-            x, _, _ = layer(x, pos_emb = self.pos_embed(inp),self_padding_mask=padding_mask,\
+            x, _, _ = layer(x,self_padding_mask=padding_mask,\
                     self_attn_mask = self_attn_mask,\
                     external_memories = src,\
                     external_padding_mask = src_padding_mask,\

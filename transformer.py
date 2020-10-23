@@ -4,7 +4,7 @@ from torch.nn import Parameter
 import torch.nn.functional as F
 import math
 
-class TransformerEncLayer(nn.Module):
+class TransformerLayer(nn.Module):
     
     def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True):
         super(TransformerLayer, self).__init__()

@@ -7,7 +7,7 @@ import math
 class TransformerEncLayer(nn.Module):
     
     def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, is_encoder = False):
-        super(TransformerLayer, self).__init__()
+        super(TransformerEncLayer, self).__init__()
         self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, is_encoder)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
