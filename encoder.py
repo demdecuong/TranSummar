@@ -145,13 +145,10 @@ class MultiheadAttention(nn.Module):
         # bs*heads x dim x dim
         λc = torch.bmm(k.transpose(1,2),v)
         Yc =  torch.bmm(q,λc)
-        print(Yc.shape)
         # position function
-        print(pos_emb.shape)
         pos_emb = pos_emb.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         λp = torch.bmm(pos_emb.transpose(1,2),v)
         Yp =  torch.bmm(q,λp)
-        print(Yc.shape,Yp.shape)
 
 
         # k,v: bsz*heads x src_len x dim
