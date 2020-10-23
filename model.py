@@ -10,11 +10,10 @@ import torch.nn.functional as F
 
 from utils_pg import *
 
-from transformer import TransformerLayer, Embedding, LearnedPositionalEmbedding, gelu, LayerNorm, SelfAttentionMask
+from encoder import TransformerEncLayer
+from transformer import TransformerLayer, Embedding, LearnedPositionalEmbedding, gelu, LayerNorm, SelfAttentionMask , SinusoidalPositionalEmbedding
 from word_prob_layer import *
 from label_smoothing import LabelSmoothing 
-
-from linear_attention_transformer import LinearAttentionTransformerLM
 
 class Model(nn.Module):
     def __init__(self, modules, consts, options):
@@ -45,12 +44,12 @@ class Model(nn.Module):
         self.smoothing_factor = consts["label_smoothing"] 
 
         self.tok_embed = nn.Embedding(self.dict_size, self.dim_x, self.pad_token_idx)
-        self.pos_embed = LearnedPositionalEmbedding(self.dim_x, device=self.device)
+        self.pos_embed = SinusoidalPositionalEmbedding(self.dim_x, device=self.device)
 
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
         for i in range(self.num_layers):
-            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
+            self.enc_layers.append(TransformerEncLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, is_encoder= True))
         for i in range(self.num_layers):
             self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True))
 
@@ -94,25 +93,25 @@ class Model(nn.Module):
         return T.mean(cost) 
 
     def encode(self, inp):
-        # seq_len, bsz = inp.size()
-        # x = self.tok_embed(inp) + self.pos_embed(inp)
-        # x = self.emb_layer_norm(x)
-        # x = F.dropout(x, p=self.dropout, training=self.training)
+        seq_len, bsz = inp.size()
+        x = self.tok_embed(inp) + self.pos_embed(inp)
+        x = self.emb_layer_norm(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         padding_mask = torch.eq(inp, self.pad_token_idx)
-        x = self.enc_layers(inp)
-        x = x.tranpose(0,1)
+        # x = self.enc_layers(inp)
+        # x = x.tranpose(0,1)
         # if not padding_mask.any():
         #     padding_mask = None
 
-        # xs = []
-        # if not padding_mask.any():
-        #     for layer_id, layer in enumerate(self.enc_layers):
-        #         x, _ ,_ = layer(x, self_padding_mask=None)
-        #         xs.append(x)
-        # else:
-        #     for layer_id, layer in enumerate(self.enc_layers):
-        #         x, _ ,_ = layer(x, self_padding_mask=padding_mask)
-        #         xs.append(x)
+        xs = []
+        if not padding_mask.any():
+            for layer_id, layer in enumerate(self.enc_layers):
+                x, _ ,_ = layer(x,pos_emb = self.pos_embed(inp),self_padding_mask=None)
+                xs.append(x)
+        else:
+            for layer_id, layer in enumerate(self.enc_layers):
+                x, _ ,_ = layer(x,pos_emb = self.pos_embed(inp), self_padding_mask=padding_mask)
+                xs.append(x)
 
         return x, padding_mask
 
@@ -133,7 +132,7 @@ class Model(nn.Module):
         self_attn_mask = self.attn_mask(seq_len)
 
         for layer_id, layer in enumerate(self.dec_layers):
-            x, _, _ = layer(x, self_padding_mask=padding_mask,\
+            x, _, _ = layer(x, pos_emb = self.pos_embed(inp),self_padding_mask=padding_mask,\
                     self_attn_mask = self_attn_mask,\
                     external_memories = src,\
                     external_padding_mask = src_padding_mask,\

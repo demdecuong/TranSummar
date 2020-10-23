@@ -6,9 +6,9 @@ import math
 
 class TransformerEncLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, is_encoder = False):
         super(TransformerLayer, self).__init__()
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, is_encoder)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
@@ -16,8 +16,9 @@ class TransformerEncLayer(nn.Module):
         self.with_external = with_external
         self.dropout = dropout
         if self.with_external:
-            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+            self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, with_external = True)
             self.external_layer_norm = LayerNorm(embed_dim)
+
         self.reset_parameters()
     
     
@@ -27,23 +28,23 @@ class TransformerEncLayer(nn.Module):
         nn.init.constant_(self.fc1.bias, 0.)
         nn.init.constant_(self.fc2.bias, 0.)
 
-    def forward(self, x, kv = None,
+    def forward(self, x, kv = None, pos_emb = None,
                 self_padding_mask = None, self_attn_mask = None,
                 external_memories = None, external_padding_mask=None,
                 need_weights = False):
         # x: seq_len x bsz x embed_dim
         residual = x
         if kv is None:
-            x, self_attn = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
+            x, self_attn = self.self_attn(query=x, key=x, value=x, pos_emb = pos_emb, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
         else:
-            x, self_attn = self.self_attn(query=x, key=kv, value=kv, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
+            x, self_attn = self.self_attn(query=x, key=kv, value=kv, pos_emb=pos_emb, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
 
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.attn_layer_norm(residual + x)
 
         if self.with_external:
             residual = x
-            x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights)
+            x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, pos_emb=pos_emb, key_padding_mask=external_padding_mask, need_weights = need_weights)
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.external_layer_norm(residual + x)
         else:
@@ -60,9 +61,10 @@ class TransformerEncLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True, with_external = False, is_encoder = False):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
+        # self.num_heads = num_heads
         self.num_heads = num_heads
         self.dropout = dropout
         self.head_dim = embed_dim // num_heads
@@ -71,9 +73,22 @@ class MultiheadAttention(nn.Module):
 
         self.in_proj_weight = Parameter(torch.Tensor(3 * embed_dim, embed_dim))
         self.in_proj_bias = Parameter(torch.Tensor(3 * embed_dim))
+        
+        self.pos_emb = nn.Linear(embed_dim,embed_dim)
 
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
+
+        self.with_external = with_external
+        # if self.with_external:
+            # Salient-choosing  
+            # self.W_h = nn.Linear(self.head_dim,self.head_dim)
+            # self.W_s = nn.Linear(self.head_dim,self.head_dim)
+        # else:
+        #     self.conv_k = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
+        #     self.conv_v = nn.Conv1d(512, 512, 11, padding = 5, bias = False)
+
+        self.is_encoder = is_encoder
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -82,9 +97,9 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.in_proj_bias, 0.)
         nn.init.constant_(self.out_proj.bias, 0.)
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
-        """ Input shape: Time x Batch x Channel
-            key_padding_mask: Time x batch
+    def forward(self, query, key, value, pos_emb = None, key_padding_mask=None, attn_mask=None, need_weights=False):
+        """ Input shape: Len x Batch x Channel
+            key_padding_mask: Len x batch
             attn_mask:  tgt_len x src_len
         """
         qkv_same = query.data_ptr() == key.data_ptr() == value.data_ptr()
@@ -105,47 +120,96 @@ class MultiheadAttention(nn.Module):
             k = self.in_proj_k(key)
             v = self.in_proj_v(value)
         q *= self.scaling
+
+        #  src_len x batch x dim
+        # if self.is_encoder:
+        #     # local attn 
+        #     #  batch x dim x src_len
+        #     k = k.permute(1,2,0)
+        #     v = v.permute(1,2,0)
+        #     k = self.conv_k(k)
+        #     v = self.conv_k(v)
+        #     k = k.permute(2,0,1)
+        #     v = v.permute(2,0,1)
+
         
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
 
         src_len = k.size(1)
-        # k,v: bsz*heads x src_len x dim
-        # q: bsz*heads x tgt_len x dim 
 
-        attn_weights = torch.bmm(q, k.transpose(1, 2))
-        assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
+        k = k.softmax(dim = -1)
+
+        # content function
+        # bs*heads x dim x dim
+        λc = torch.bmm(k.transpose(1,2),v)
+        Yc =  torch.bmm(q,λc)
+        print(Yc.shape)
+        # position function
+        print(pos_emb.shape)
+        pos_emb = pos_emb.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+        λp = torch.bmm(pos_emb.transpose(1,2),v)
+        Yp =  torch.bmm(q,λp)
+        print(Yc.shape,Yp.shape)
+
+
+        # k,v: bsz*heads x src_len x dim
+        # q: bsz*heads x tgt_len x dim
+
+        # if self.with_external:
+        #     h = self.W_h(q)
+        #     s = self.W_s(k)
+        #     g = torch.sigmoid(torch.bmm(h,s.transpose(1,2)))
+        # attn_weights = torch.bmm(q, k.transpose(1, 2))
+        # if self.with_external:
+        #   attn_weights = g * attn_weights 
+
+        # assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
+        # tgt_len x tgt_len
         if attn_mask is not None:
-            attn_weights.masked_fill_(
+            Yp.masked_fill_(
                 attn_mask.unsqueeze(0),
                 float('-inf')
             )
-
-        if key_padding_mask is not None:
-            # don't attend to padding symbols
-            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights.masked_fill_(
-                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2),
+            Yc.masked_fill_(
+                attn_mask.unsqueeze(0),
                 float('-inf')
             )
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+        # len x bs
+        if key_padding_mask is not None:
+            # don't attend to padding symbols
+            Yp = Yp.view(bsz, self.num_heads, tgt_len, self.head_dim)
+            Yp.masked_fill_(
+                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
+                float('-inf')
+            )
+            Yp = Yp.view(bsz * self.num_heads, tgt_len, self.head_dim)
 
-        
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        
+            Yc = Yc.view(bsz, self.num_heads, tgt_len, self.head_dim)
+            Yc.masked_fill_(
+                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
+                float('-inf')
+            )
+            Yc = Yc.view(bsz * self.num_heads, tgt_len, self.head_dim)
+        Yc = Yc.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        Yp = Yp.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        print(Yc.shape,Yp.shape)
+
+        Y = self.out_proj(Yc + Yp) 
+
         if self.weights_dropout:
-            attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
+            Yc = F.dropout(Yc, p=self.dropout, training=self.training)
+            Yp = F.dropout(Yp, p=self.dropout, training=self.training)
 
-        attn = torch.bmm(attn_weights, v)
         if not self.weights_dropout:
-            attn = F.dropout(attn, p=self.dropout, training=self.training)
+            Y = F.dropout(Y, p=self.dropout, training=self.training)
 
-        assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.head_dim]
+        # assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.head_dim]
 
-        attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-        attn = self.out_proj(attn)
+        # attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        # attn = self.out_proj(attn)
 
         if need_weights:
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
@@ -156,8 +220,8 @@ class MultiheadAttention(nn.Module):
             attn_weights = attn_weights.transpose(0, 1)
         else:
             attn_weights = None
-
-        return attn, attn_weights
+        
+        return Y, attn_weights
 
     def in_proj_qkv(self, query):
         return self._in_proj(query).chunk(3, dim=-1)
