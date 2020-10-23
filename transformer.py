@@ -73,6 +73,8 @@ class MultiheadAttention(nn.Module):
 
         self.in_proj_weight = Parameter(torch.Tensor(3 * embed_dim, embed_dim))
         self.in_proj_bias = Parameter(torch.Tensor(3 * embed_dim))
+        
+        self.pos_emb = nn.Linear(embed_dim,embed_dim)
 
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
@@ -95,7 +97,7 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.in_proj_bias, 0.)
         nn.init.constant_(self.out_proj.bias, 0.)
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
+    def forward(self, query, key, value, pos_embed = None, key_padding_mask=None, attn_mask=None, need_weights=False):
         """ Input shape: Len x Batch x Channel
             key_padding_mask: Len x batch
             attn_mask:  tgt_len x src_len
@@ -135,18 +137,32 @@ class MultiheadAttention(nn.Module):
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
 
         src_len = k.size(1)
+
+        k = k.softmax(dim = -1)
+
+        # content function
+        λc = torch.bmm(k,v.transpose(1,2))
+        Yc =  torch.bmm(q,λc.transpose(1,2))
+
+        # position function
+        if pos_embed is None:
+            λp = torch.bmm(self.pos_emb,v.transpose(1,2))
+        else:
+            λp = torch.bmm(pos_embed,v.transpose(1,2))
+        Yp =  torch.bmm(q,λp.transpose(1,2))
+
         # k,v: bsz*heads x src_len x dim
         # q: bsz*heads x tgt_len x dim
 
-        if self.with_external:
-            h = self.W_h(q)
-            s = self.W_s(k)
-            g = torch.sigmoid(torch.bmm(h,s.transpose(1,2)))
-        attn_weights = torch.bmm(q, k.transpose(1, 2))
-        if self.with_external:
-          attn_weights = g * attn_weights 
+        # if self.with_external:
+        #     h = self.W_h(q)
+        #     s = self.W_s(k)
+        #     g = torch.sigmoid(torch.bmm(h,s.transpose(1,2)))
+        # attn_weights = torch.bmm(q, k.transpose(1, 2))
+        # if self.with_external:
+        #   attn_weights = g * attn_weights 
 
-        assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
+        # assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
         if attn_mask is not None:
             attn_weights.masked_fill_(
@@ -156,27 +172,32 @@ class MultiheadAttention(nn.Module):
 
         if key_padding_mask is not None:
             # don't attend to padding symbols
-            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights.masked_fill_(
+            Yp = Yp.view(bsz, self.num_heads, tgt_len, src_len)
+            Yp.masked_fill_(
                 key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2),
                 float('-inf')
             )
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+            Yp = Yp.view(bsz * self.num_heads, tgt_len, src_len)
+            Yc = Yc.view(bsz, self.num_heads, tgt_len, src_len)
+            Yc.masked_fill_(
+                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2),
+                float('-inf')
+            )
+            Yc = Yc.view(bsz * self.num_heads, tgt_len, src_len)
+        
+        Y = self.out_proj(Yc + Yp) 
 
-        
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        
         if self.weights_dropout:
-            attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
+            Yc = F.dropout(Yc, p=self.dropout, training=self.training)
+            Yp = F.dropout(Yp, p=self.dropout, training=self.training)
 
-        attn = torch.bmm(attn_weights, v)
         if not self.weights_dropout:
-            attn = F.dropout(attn, p=self.dropout, training=self.training)
+            Y = F.dropout(Y, p=self.dropout, training=self.training)
 
         assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.head_dim]
 
-        attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-        attn = self.out_proj(attn)
+        # attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        # attn = self.out_proj(attn)
 
         if need_weights:
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
@@ -187,8 +208,10 @@ class MultiheadAttention(nn.Module):
             attn_weights = attn_weights.transpose(0, 1)
         else:
             attn_weights = None
+        
 
-        return attn, attn_weights
+
+        return Y, attn_weights
 
     def in_proj_qkv(self, query):
         return self._in_proj(query).chunk(3, dim=-1)
