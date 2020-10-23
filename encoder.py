@@ -175,24 +175,23 @@ class MultiheadAttention(nn.Module):
                 float('-inf')
             )
         # len x bs
-        if key_padding_mask is not None:
-            # don't attend to padding symbols
-            Yp = Yp.view(bsz, self.num_heads, tgt_len, self.head_dim)
-            Yp.masked_fill_(
-                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
-                float('-inf')
-            )
-            Yp = Yp.view(bsz * self.num_heads, tgt_len, self.head_dim)
+        # if key_padding_mask is not None:
+        #     # don't attend to padding symbols
+        #     Yp = Yp.view(bsz, self.num_heads, tgt_len, self.head_dim)
+        #     Yp.masked_fill_(
+        #         key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
+        #         float('-inf')
+        #     )
+        #     Yp = Yp.view(bsz * self.num_heads, tgt_len, self.head_dim)
 
-            Yc = Yc.view(bsz, self.num_heads, tgt_len, self.head_dim)
-            Yc.masked_fill_(
-                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
-                float('-inf')
-            )
-            Yc = Yc.view(bsz * self.num_heads, tgt_len, self.head_dim)
+        #     Yc = Yc.view(bsz, self.num_heads, tgt_len, self.head_dim)
+        #     Yc.masked_fill_(
+        #         key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(3),
+        #         float('-inf')
+        #     )
+        #     Yc = Yc.view(bsz * self.num_heads, tgt_len, self.head_dim)
         Yc = Yc.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
         Yp = Yp.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-        print(Yc.shape,Yp.shape)
 
         Y = self.out_proj(Yc + Yp) 
 
