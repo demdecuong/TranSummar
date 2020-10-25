@@ -149,7 +149,8 @@ class MultiheadAttention(nn.Module):
 
         if self.weights_dropout:
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
-            qvi = F.dropout(qvi, p=self.dropout, training=self.training)
+            if self.is_encoder:
+                qvi = F.dropout(qvi, p=self.dropout, training=self.training)
 
         if self.is_encoder:
             attn = torch.bmm(attn_weights, qvi)
