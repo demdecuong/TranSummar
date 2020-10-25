@@ -194,7 +194,7 @@ class MultiheadAttention(nn.Module):
         Yc = torch.bmm(Yc,λp)
         Yc = Yc.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
 
-        Y = self.out_proj(Yc + Yp) 
+        Y = self.out_proj(Yc) 
 
         if self.weights_dropout:
             Yc = F.dropout(Yc, p=self.dropout, training=self.training)
