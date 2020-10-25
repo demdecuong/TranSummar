@@ -74,6 +74,8 @@ class MultiheadAttention(nn.Module):
 
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
+
+        self.refine_v = nn.Linear(embed_dim,embed_dim)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -106,6 +108,9 @@ class MultiheadAttention(nn.Module):
             v = self.in_proj_v(value)
         q *= self.scaling
         
+        qvi_v = self.refine_v(v)
+        qvi_v = qvi_v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
@@ -115,6 +120,8 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
+        qvi = torch.bmm(F.softmax(q,dim=-1), qvi_v.transpose(1, 2)) + v
+
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
         if attn_mask is not None:
@@ -126,19 +133,20 @@ class MultiheadAttention(nn.Module):
         if key_padding_mask is not None:
             # don't attend to padding symbols
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
+
             attn_weights.masked_fill_(
                 key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2),
                 float('-inf')
             )
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
-
         
         attn_weights = F.softmax(attn_weights, dim=-1)
-        
+
         if self.weights_dropout:
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
+            qvi = F.dropout(qvi, p=self.dropout, training=self.training)
 
-        attn = torch.bmm(attn_weights, v)
+        attn = torch.bmm(attn_weights, qvi)
         if not self.weights_dropout:
             attn = F.dropout(attn, p=self.dropout, training=self.training)
 
