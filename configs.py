@@ -48,7 +48,7 @@ class DeepmindConfigs():
     NORM_CLIP = 2
     if not AVG_NLL:
         NORM_CLIP = 5
-    LR = 0.25
+    LR = 0.15
     SMOOTHING = 0.1
 
     BEAM_SEARCH = True
@@ -62,7 +62,7 @@ class DeepmindConfigs():
     FF_SIZE = 1024
     NUM_H = 8 # multi-head attention
     DROPOUT = 0.2
-    NUM_L = 6 # num of layers
+    NUM_L = 4 # num of layers
     MIN_LEN_X = 10
     MIN_LEN_Y = 10
     MAX_LEN_X = 400

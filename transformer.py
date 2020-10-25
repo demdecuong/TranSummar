@@ -6,9 +6,9 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, is_encoder = False):
         super(TransformerLayer, self).__init__()
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , is_encoder = is_encoder)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
@@ -18,6 +18,8 @@ class TransformerLayer(nn.Module):
         if self.with_external:
             self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout)
             self.external_layer_norm = LayerNorm(embed_dim)
+
+
         self.reset_parameters()
     
     
@@ -60,7 +62,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True, is_encoder=False):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -76,6 +78,8 @@ class MultiheadAttention(nn.Module):
         self.weights_dropout = weights_dropout
 
         self.refine_v = nn.Linear(embed_dim,embed_dim)
+        self.is_encoder = is_encoder
+
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -120,8 +124,9 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
-        qvi = torch.bmm(F.softmax(q,dim=-1), qvi_v.transpose(1, 2)) + v
-
+        if self.is_encoder:
+            qvi = torch.mul(F.softmax(q,dim=-1), qvi_v) + v
+        
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
         if attn_mask is not None:
@@ -146,7 +151,10 @@ class MultiheadAttention(nn.Module):
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
             qvi = F.dropout(qvi, p=self.dropout, training=self.training)
 
-        attn = torch.bmm(attn_weights, qvi)
+        if self.is_encoder:
+            attn = torch.bmm(attn_weights, qvi)
+        else:
+            attn = torch.bmm(attn_weights, v)
         if not self.weights_dropout:
             attn = F.dropout(attn, p=self.dropout, training=self.training)
 
