@@ -45,7 +45,7 @@ class TransformerLayer(nn.Module):
 
         if self.with_external:
             residual = x
-            x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights)
+            x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights, with_external = self.with_external)
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.external_layer_norm(residual + x)
         else:
@@ -88,7 +88,7 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.in_proj_bias, 0.)
         nn.init.constant_(self.out_proj.bias, 0.)
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
+    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False, with_external = False):
         """ Input shape: Time x Batch x Channel
             key_padding_mask: Time x batch
             attn_mask:  tgt_len x src_len
@@ -124,7 +124,7 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
-        if self.is_encoder:
+        if with_external:
             attn_context = torch.bmm(F.softmax(k,dim = -1), v.transpose(1, 2))
             attn_weights = torch.bmm(attn_weights,attn_context.tranpose(1,2))
 
