@@ -124,8 +124,9 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
-        attn_context = torch.bmm(F.softmax(k,dim = -1), v.transpose(1, 2))
-        attn_weights = torch.bmm(attn_weights,attn_context)
+        if self.is_encoder:
+            attn_context = torch.bmm(F.softmax(k,dim = -1), v.transpose(1, 2))
+            attn_weights = torch.bmm(attn_weights,attn_context.tranpose(1,2))
 
         # if self.is_encoder:
         #     qvi = torch.mul(F.softmax(q,dim=-1), qvi_v) + v
