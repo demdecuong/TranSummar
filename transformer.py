@@ -77,7 +77,7 @@ class MultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
 
-        # self.refine_v = nn.Linear(embed_dim,embed_dim)
+        self.refine_v = nn.Linear(embed_dim,embed_dim)
         self.is_encoder = is_encoder
 
         self.reset_parameters()
@@ -112,8 +112,8 @@ class MultiheadAttention(nn.Module):
             v = self.in_proj_v(value)
         q *= self.scaling
         
-        # qvi_v = self.refine_v(v)
-        # qvi_v = qvi_v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+        qvi_v = self.refine_v(v)
+        qvi_v = qvi_v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
 
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
