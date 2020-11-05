@@ -507,7 +507,7 @@ def run(existing_model_name = None,w = 64):
                     if not options["is_debugging"]:
                         print ("save model... ",)
                         # file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".epoch" + str(epoch // consts["save_epoch"] + existing_epoch) + "." + str(num_partial)
-                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model_qvi5"
+                        file_name =  model_name + ".gpu" + str(consts["idx_gpu"]) + ".best_model_qvi8"
 
                         save_model(cfg.cc.MODEL_PATH + file_name, model, optimizer)
                         if options["fire"]:
