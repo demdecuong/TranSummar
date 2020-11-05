@@ -48,7 +48,7 @@ class Model(nn.Module):
         self.enc_layers = nn.ModuleList()
         self.dec_layers = nn.ModuleList()
         for i in range(self.num_layers):
-            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, id = i))
+            self.enc_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, id = i, is_encoder=True))
         for i in range(self.num_layers):
             self.dec_layers.append(TransformerLayer(self.dim_x, self.d_ff, self.num_heads, self.dropout, with_external=True, id = i))
         

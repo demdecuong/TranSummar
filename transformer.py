@@ -6,15 +6,16 @@ import math
 
 class TransformerLayer(nn.Module):
     
-    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id = 0):
+    def __init__(self, embed_dim, ff_embed_dim, num_heads, dropout, with_external=False, weights_dropout = True, id = 0, is_encoder = False):
         super(TransformerLayer, self).__init__()
         self.id = id
-        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id)
+        self.self_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout , id = self.id, is_encoder = is_encoder)
         self.fc1 = nn.Linear(embed_dim, ff_embed_dim)
         self.fc2 = nn.Linear(ff_embed_dim, embed_dim)
         self.attn_layer_norm = LayerNorm(embed_dim)
         self.ff_layer_norm = LayerNorm(embed_dim)
         self.with_external = with_external
+        self.is_encoder =  is_encoder
         self.dropout = dropout
         if self.with_external:
             self.external_attn = MultiheadAttention(embed_dim, num_heads, dropout, weights_dropout, random_key = True, id = self.id)
@@ -61,7 +62,7 @@ class TransformerLayer(nn.Module):
     
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id = 0):
+    def __init__(self, embed_dim, num_heads, dropout=0., weights_dropout=True,random_key = False, id = 0 , is_encoder = False):
         super(MultiheadAttention, self).__init__()
         self.id = id
         self.embed_dim = embed_dim
@@ -77,6 +78,10 @@ class MultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
         
+        self.is_encoder = is_encoder
+        if self.is_encoder:
+            self.refine_v = nn.Linear(embed_dim,embed_dim)
+
         self.random_key = random_key
         if random_key:
             self.random_k = nn.Linear(embed_dim,embed_dim)
@@ -118,6 +123,10 @@ class MultiheadAttention(nn.Module):
             v = self.in_proj_v(value)
         q *= self.scaling
         
+        if self.is_encoder:
+            qvi_v = self.refine_v(v)
+            qvi_v = qvi_v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+
         q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
@@ -126,7 +135,11 @@ class MultiheadAttention(nn.Module):
         # k,v: bsz*heads x src_len x dim
         # q: bsz*heads x tgt_len x dim 
 
+        if self.is_encoder:
+            qvi = torch.mul(F.softmax(q,dim=-1), qvi_v) + v
+        
         attn_weights = torch.bmm(q, k.transpose(1, 2))
+        
         if self.random_key:
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
             attn_weights_random = torch.bmm(q,k_random.transpose(1, 2))
@@ -166,8 +179,14 @@ class MultiheadAttention(nn.Module):
         
         if self.weights_dropout:
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
-
-        attn = torch.bmm(attn_weights, v)
+            if self.is_encoder:
+                qvi = F.dropout(qvi, p=self.dropout, training=self.training)
+        
+        if self.is_encoder:
+            attn = torch.bmm(attn_weights, qvi)
+        else:
+            attn = torch.bmm(attn_weights, v)
+        
         if not self.weights_dropout:
             attn = F.dropout(attn, p=self.dropout, training=self.training)
 
