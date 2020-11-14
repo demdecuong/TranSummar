@@ -40,8 +40,8 @@ class DeepmindConfigs():
 
     CELL = "transformer"
     CUDA = True
-    COPY = True
-    COVERAGE = True
+    COPY = False
+    COVERAGE = False
     
     BI_RNN = False
     AVG_NLL = True
