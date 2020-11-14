@@ -81,7 +81,7 @@ class MultiheadAttention(nn.Module):
         self.is_encoder = is_encoder
         if self.is_encoder:
             self.refine_v = nn.Linear(embed_dim,embed_dim)
-            self.refine_context = nn.Linear(embed_dim,embed_dim)
+            # self.refine_context = nn.Linear(embed_dim,embed_dim)
 
         self.random_key = random_key
         if random_key:
@@ -142,7 +142,7 @@ class MultiheadAttention(nn.Module):
         attn_weights = torch.bmm(q, k.transpose(1, 2))
         if self.is_encoder:
             attn_context = torch.bmm(F.softmax(k,dim = -1), v.transpose(1, 2))
-            attn_weights = torch.bmm(attn_weights, self.refine_context(attn_context))
+            attn_weights = torch.bmm(attn_weights, attn_context)
 
         if self.random_key:
             k_random = self.random_k(key).contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
