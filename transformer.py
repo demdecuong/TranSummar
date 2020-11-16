@@ -121,16 +121,10 @@ class MultiheadAttention(nn.Module):
         # q: bsz*heads x tgt_len x dim 
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
-        context_vectors = torch.bmm(F.softmax(k.transpose(1,2),dim = -2) , v)
-        context_vectors = F.softmax(q,context_vectors.transpose(1,2))
-        # context_vectors = self.refine_context(context_vectors)
-
-        if with_external:
-            attn_context = torch.bmm(F.softmax(k,dim = -1), qvi_v.transpose(1, 2))
-            attn_weights = torch.bmm(attn_weights,attn_context)
-
         if self.is_encoder:
-            qvi = torch.mul(F.softmax(q,dim=-1), qvi_v) + v
+            context_vectors = torch.bmm(k.transpose(1,2) , v)
+            context_vectors = torch.bmm(q,context_vectors.transpose(1,2))
+            context_vectors = F.softmax(context_vectors,dim = -1)
         
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
         
@@ -155,8 +149,10 @@ class MultiheadAttention(nn.Module):
         if self.weights_dropout:
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
 
- 
-        attn = torch.bmm(attn_weights, v) + context_vectors
+        attn = torch.bmm(attn_weights, v)
+        if self.is_encoder:
+            attn = attn + context_vectors
+        
 
         if not self.weights_dropout:
             attn = F.dropout(attn, p=self.dropout, training=self.training)
