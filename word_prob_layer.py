@@ -26,11 +26,11 @@ class WordProbLayer(nn.Module):
             self.bv = nn.Parameter(torch.Tensor(1))
         else:
             self.proj = nn.Linear(self.hidden_size, self.dict_size)
-        
-        self.outdegree_space = nn.Parameter(
-            torch.empty(1, 1).uniform_(0, 1), requires_grad=True)
 
         self.init_weights()
+
+        self.kl_loss = torch.nn.KLDivLoss()
+        self.lambda_= 1.0
 
     def init_weights(self):
         init_linear_weight(self.proj)
@@ -41,7 +41,7 @@ class WordProbLayer(nn.Module):
     def forward(self, h, y_emb=None, memory=None, mask_x=None, xids=None, max_ext_len=None, outdegree_score = None):
 
         if self.copy:
-            atts, dists = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=mask_x, need_weights = True)
+            atts, dists = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=mask_x, need_weights = True,outdegree_score = outdegree_score)
             pred = T.softmax(self.proj(T.cat([h, y_emb, atts], -1)), dim=-1)
             if max_ext_len > 0:
                 ext_zeros = Variable(torch.zeros(pred.size(0), pred.size(1), max_ext_len)).to(self.device)
@@ -49,7 +49,10 @@ class WordProbLayer(nn.Module):
             g = T.sigmoid(F.linear(T.cat([h, y_emb, atts], -1), self.v, self.bv))
             xids = xids.transpose(0, 1).unsqueeze(0).repeat(pred.size(0), 1, 1) 
             pred = (g * pred).scatter_add(2, xids, (1 - g) * dists)
+            dists = dists.transpose(0,1).transpose(1,2)
+            dists = torch.mean(dists,dim = -1)
+            kl = self.lambda_ * self.kl_loss(dists,outdegree_score)
         else:
-            pred = T.softmax(self.proj(h), dim=-1)
+            pred = T.softmax(self.proj(h), dim=-1) 
             dists = None
-        return pred, dists
+        return pred, dists , kl

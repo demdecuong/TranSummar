@@ -75,6 +75,8 @@ class MultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.weights_dropout = weights_dropout
         self.reset_parameters()
+        self.outdegree_space = nn.Parameter(
+            torch.empty(1, 1).uniform_(0, 1))
 
     def reset_parameters(self):
         nn.init.normal_(self.in_proj_weight, std=0.02)
@@ -82,7 +84,7 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.in_proj_bias, 0.)
         nn.init.constant_(self.out_proj.bias, 0.)
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
+    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False,outdegree_score = None):
         """ Input shape: Time x Batch x Channel
             key_padding_mask: Time x batch
             attn_mask:  tgt_len x src_len
@@ -138,7 +140,15 @@ class MultiheadAttention(nn.Module):
         if self.weights_dropout:
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
 
-        attn = torch.bmm(attn_weights, v)
+        if outdegree_score is not None:
+          outdegree_score = outdegree_score * self.outdegree_space
+          outdegree_score = outdegree_score.unsqueeze(2)
+          print(outdegree_score.shape,v.shape)
+          attn = torch.bmm(attn_weights, v + outdegree_score)
+          print(attn.shape)
+        else:
+          attn = torch.bmm(attn_weights, v)
+
         if not self.weights_dropout:
             attn = F.dropout(attn, p=self.dropout, training=self.training)
 
@@ -151,7 +161,8 @@ class MultiheadAttention(nn.Module):
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             
             #attn_weights, _ = attn_weights.max(dim=1)
-            attn_weights = attn_weights[:, 0, :, :]
+            if outdegree_score is not None:
+              attn_weights = attn_weights[:, 0, :, :]
             #attn_weights = attn_weights.mean(dim=1)
             attn_weights = attn_weights.transpose(0, 1)
         else:

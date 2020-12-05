@@ -109,11 +109,11 @@ class Model(nn.Module):
         xs = []
         if not padding_mask.any():
             for layer_id, layer in enumerate(self.enc_layers):
-                x, self_attn ,_ = layer(x, self_padding_mask=None)
+                x, self_attn ,_ = layer(x, self_padding_mask=None,need_weights = True)
                 xs.append(x)
         else:
             for layer_id, layer in enumerate(self.enc_layers):
-                x, self_attn ,_ = layer(x, self_padding_mask=padding_mask)
+                x, self_attn ,_ = layer(x, self_padding_mask=padding_mask,need_weights = True)
                 xs.append(x)
 
         return x, padding_mask , self_attn
@@ -141,20 +141,22 @@ class Model(nn.Module):
                     external_padding_mask = src_padding_mask,\
                     need_weights = False)
         if self.copy:
-            y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len, outdegree_score)
+            y_dec, attn_dist , kl_loss = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len, outdegree_score)
         else:
             y_dec, attn_dist = self.word_prob(x)
        
-        return y_dec, attn_dist
+        return y_dec, attn_dist , kl_loss
 
     def forward(self, x, y_inp, y_tgt, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
         # seq len x batch x dmodel
         hs, src_padding_mask, self_attn = self.encode(x)
-        # B x len x len
+        # B x len x 1
         outdegree_score = get_outdegree_score(self_attn)
+        
         if self.copy:
-            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len, outdegree_score= outdegree_score)
+            y_pred, _ , kl_loss = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len, outdegree_score= outdegree_score)
             cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
+            cost += kl_loss
         else:
             y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)
             cost = self.nll_loss(y_pred, y_tgt, mask_y, self.avg_nll)
