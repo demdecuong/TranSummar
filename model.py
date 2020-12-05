@@ -13,7 +13,7 @@ from utils_pg import *
 from transformer import TransformerLayer, Embedding, LearnedPositionalEmbedding, gelu, LayerNorm, SelfAttentionMask
 from word_prob_layer import *
 from label_smoothing import LabelSmoothing 
-
+from scorer import get_outdegree_score
 class Model(nn.Module):
     def __init__(self, modules, consts, options):
         super(Model, self).__init__()  
@@ -109,16 +109,16 @@ class Model(nn.Module):
         xs = []
         if not padding_mask.any():
             for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=None)
+                x, self_attn ,_ = layer(x, self_padding_mask=None)
                 xs.append(x)
         else:
             for layer_id, layer in enumerate(self.enc_layers):
-                x, _ ,_ = layer(x, self_padding_mask=padding_mask)
+                x, self_attn ,_ = layer(x, self_padding_mask=padding_mask)
                 xs.append(x)
 
-        return x, padding_mask
+        return x, padding_mask , self_attn
 
-    def decode(self, inp, mask_x, mask_y, src, src_padding_mask, xids=None, max_ext_len=None):
+    def decode(self, inp, mask_x, mask_y, src, src_padding_mask, xids=None, max_ext_len=None, outdegree_score = None):
         seq_len, bsz = inp.size()
         x = self.tok_embed(inp) + self.pos_embed(inp)
         x = self.emb_layer_norm(x)
@@ -141,7 +141,7 @@ class Model(nn.Module):
                     external_padding_mask = src_padding_mask,\
                     need_weights = False)
         if self.copy:
-            y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len)
+            y_dec, attn_dist = self.word_prob(x, h, src, src_padding_mask, xids, max_ext_len, outdegree_score)
         else:
             y_dec, attn_dist = self.word_prob(x)
        
@@ -149,9 +149,11 @@ class Model(nn.Module):
 
     def forward(self, x, y_inp, y_tgt, mask_x, mask_y, x_ext, y_ext, max_ext_len, attention_mask = None):
         # seq len x batch x dmodel
-        hs, src_padding_mask = self.encode(x)
+        hs, src_padding_mask, self_attn = self.encode(x)
+        # B x len x len
+        outdegree_score = get_outdegree_score(self_attn)
         if self.copy:
-            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len)
+            y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask, x_ext, max_ext_len, outdegree_score= outdegree_score)
             cost = self.label_smotthing_loss(y_pred, y_ext, mask_y, self.avg_nll)
         else:
             y_pred, _ = self.decode(y_inp, mask_x, mask_y, hs, src_padding_mask)

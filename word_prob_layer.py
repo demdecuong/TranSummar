@@ -27,6 +27,9 @@ class WordProbLayer(nn.Module):
         else:
             self.proj = nn.Linear(self.hidden_size, self.dict_size)
         
+        self.outdegree_space = nn.Parameter(
+            torch.empty(1, 1).uniform_(0, 1), requires_grad=True)
+
         self.init_weights()
 
     def init_weights(self):
@@ -35,7 +38,7 @@ class WordProbLayer(nn.Module):
             init_xavier_weight(self.v) 
             init_bias(self.bv)
 
-    def forward(self, h, y_emb=None, memory=None, mask_x=None, xids=None, max_ext_len=None):
+    def forward(self, h, y_emb=None, memory=None, mask_x=None, xids=None, max_ext_len=None, outdegree_score = None):
 
         if self.copy:
             atts, dists = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=mask_x, need_weights = True)
